@@ -118,5 +118,11 @@ export async function initDB() {
     )
   `);
 
+  // Add visibility and assignment columns if missing (safe on repeated runs)
+  await db.execute(`ALTER TABLE complaints ADD COLUMN IF NOT EXISTS visibility ENUM('PUBLIC','PRIVATE') DEFAULT 'PUBLIC'`);
+  await db.execute(`ALTER TABLE complaints ADD COLUMN IF NOT EXISTS assigned_officer_id INT NULL`);
+  // Comment visibility: PUBLIC (citizen+officer+admin), PRIVATE (citizen+admin), INTERNAL (officers+admin)
+  await db.execute(`ALTER TABLE comments ADD COLUMN IF NOT EXISTS visibility ENUM('PUBLIC','PRIVATE','INTERNAL') DEFAULT 'PUBLIC'`);
+
   console.log(`Database "${DB_NAME}" and tables are ready.`);
 }

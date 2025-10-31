@@ -2,9 +2,11 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { loginUser } from "@/utils/api";
+import { useAuth } from "../auth";
+import Link from "next/link";
 
 export default function LoginPage() {
+  const { login } = useAuth();
   const router = useRouter();
   const [form, setForm] = useState({ email: "", password: "" });
   const [error, setError] = useState(null);
@@ -17,8 +19,8 @@ export default function LoginPage() {
     setLoading(true);
     setError(null);
     try {
-      await loginUser(form.email, form.password);
-      router.push("/complaints");
+      await login(form);
+      // Auth provider handles role-based redirect
     } catch (err) {
       setError(err.message);
     } finally {
@@ -64,9 +66,9 @@ export default function LoginPage() {
 
       <p className="text-sm mt-4 text-center">
         Don't have an account?{" "}
-        <a href="/register" className="text-blue-600 hover:underline">
+        <Link href="/register" className="text-blue-600 hover:underline">
           Register
-        </a>
+        </Link>
       </p>
     </div>
   );

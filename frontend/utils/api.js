@@ -13,6 +13,19 @@ export const getToken = () => {
   return null;
 };
 
+// Helper: get stored user
+export const getUser = () => {
+  if (typeof window !== "undefined") {
+    try {
+      const u = localStorage.getItem("user");
+      return u ? JSON.parse(u) : null;
+    } catch {
+      return null;
+    }
+  }
+  return null;
+};
+
 // ✅ Base fetch wrapper with JSON parsing & JWT header
 export async function apiFetch(endpoint, options = {}) {
   const token = getToken();

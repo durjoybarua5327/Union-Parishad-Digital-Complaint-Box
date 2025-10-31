@@ -321,7 +321,7 @@ router.post('/complaints', requireAuth, upload.array('images'), async (req, res,
 });
 
 // --- COMMENTS ---
-router.get('/comments', async (req, res, next) => {
+router.get('/comments', tryAuthenticate, async (req, res, next) => {
   const { complaintId } = req.query;
 
   if (!complaintId) {
@@ -333,6 +333,27 @@ router.get('/comments', async (req, res, next) => {
   }
 
   try {
+    // Load complaint to decide visibility rules
+    const [complRows] = await db.execute('SELECT * FROM complaints WHERE id = ?', [complaintId]);
+    if (complRows.length === 0) return next({ status: 404, message: 'Complaint not found', code: 'COMPLAINT_NOT_FOUND' });
+    const complaint = complRows[0];
+
+    // Ensure requester can view the complaint
+    const user = req.user;
+    if (!user) return next({ status: 401, message: 'Authentication required', code: 'UNAUTHORIZED' });
+
+    const canView = (user.role === 'ADMIN') || (user.role === 'CITIZEN' && user.id === complaint.user_id) ||
+      (user.role === 'OFFICER' && (user.ward === complaint.ward || complaint.assigned_officer_id === user.id)) ||
+      false;
+
+    // Private complaints: officers cannot view unless assigned or admin
+    if (complaint.visibility === 'PRIVATE' && !(user.role === 'ADMIN' || user.id === complaint.user_id || complaint.assigned_officer_id === user.id)) {
+      return next({ status: 403, message: 'Forbidden', code: 'FORBIDDEN' });
+    }
+
+    if (!canView) return next({ status: 403, message: 'Forbidden', code: 'FORBIDDEN' });
+
+    // Fetch comments, then filter by comment visibility rules
     const [rows] = await db.execute(`
       SELECT c.*, u.name as user_name, u.role as user_role
       FROM comments c
@@ -340,8 +361,20 @@ router.get('/comments', async (req, res, next) => {
       WHERE c.complaint_id = ?
       ORDER BY c.created_at DESC
     `, [complaintId]);
-    
-    res.success(rows, 'Comments retrieved successfully');
+
+    const filtered = rows.filter((c) => {
+      const v = c.visibility || 'PUBLIC';
+      if (v === 'PUBLIC') return true;
+      if (v === 'PRIVATE') {
+        return user.role === 'ADMIN' || user.id === complaint.user_id || complaint.assigned_officer_id === user.id;
+      }
+      if (v === 'INTERNAL') {
+        return user.role === 'ADMIN' || (user.role === 'OFFICER' && (user.ward === complaint.ward || complaint.assigned_officer_id === user.id));
+      }
+      return false;
+    });
+
+    res.success(filtered, 'Comments retrieved successfully');
   } catch (err) {
     next({ 
       status: 500, 
@@ -351,46 +384,44 @@ router.get('/comments', async (req, res, next) => {
   }
 });
 
-router.post('/comments', async (req, res, next) => {
-  const { content, userId, complaintId } = req.body;
+router.post('/comments', requireAuth, async (req, res, next) => {
+  const { content, complaintId, visibility } = req.body;
+  const user = req.user;
 
   // Validate input
   if (!content || content.trim().length < 1) {
-    return next({ 
-      status: 400, 
-      message: 'Comment content is required', 
-      code: 'VALIDATION_ERROR' 
-    });
+    return next({ status: 400, message: 'Comment content is required', code: 'VALIDATION_ERROR' });
   }
 
-  if (!userId || !complaintId) {
-    return next({ 
-      status: 400, 
-      message: 'User ID and Complaint ID are required', 
-      code: 'VALIDATION_ERROR' 
-    });
+  if (!complaintId) {
+    return next({ status: 400, message: 'Complaint ID is required', code: 'VALIDATION_ERROR' });
   }
 
   try {
     // Check if complaint exists
-    const [complaint] = await db.execute(
-      'SELECT id FROM complaints WHERE id = ?',
-      [complaintId]
-    );
+    const [complRows] = await db.execute('SELECT * FROM complaints WHERE id = ?', [complaintId]);
+    if (complRows.length === 0) return next({ status: 404, message: 'Complaint not found', code: 'COMPLAINT_NOT_FOUND' });
+    const complaint = complRows[0];
 
-    if (complaint.length === 0) {
-      return next({ 
-        status: 404, 
-        message: 'Complaint not found', 
-        code: 'COMPLAINT_NOT_FOUND' 
-      });
+    // Authorization: citizens can only comment on their own complaints
+    if (user.role === 'CITIZEN' && user.id !== complaint.user_id) {
+      return next({ status: 403, message: 'Citizens may only comment on their own complaints', code: 'FORBIDDEN' });
+    }
+
+    // Visibility rules
+    const vis = (visibility || 'PUBLIC').toUpperCase();
+    if (vis === 'INTERNAL' && !(user.role === 'OFFICER' || user.role === 'ADMIN')) {
+      return next({ status: 403, message: 'Only officers/admin can post internal comments', code: 'FORBIDDEN' });
+    }
+    if (vis === 'PRIVATE' && user.role === 'OFFICER' && user.id !== complaint.assigned_officer_id) {
+      return next({ status: 403, message: 'Officers cannot post private comments unless assigned', code: 'FORBIDDEN' });
     }
 
     const [result] = await db.execute(`
       INSERT INTO comments (
-        content, user_id, complaint_id, created_at
-      ) VALUES (?, ?, ?, NOW())
-    `, [content, userId, complaintId]);
+        content, user_id, complaint_id, visibility, created_at
+      ) VALUES (?, ?, ?, ?, NOW())
+    `, [content, user.id, complaintId, vis]);
 
     // Fetch the created comment with user details
     const [newComment] = await db.execute(`
@@ -400,16 +431,113 @@ router.post('/comments', async (req, res, next) => {
       WHERE c.id = ?
     `, [result.insertId]);
 
-    res.status(201).success(
-      newComment[0],
-      'Comment added successfully'
-    );
+    res.status(201).success(newComment[0], 'Comment added successfully');
   } catch (err) {
-    next({ 
-      status: err.status || 500, 
-      message: err.message || 'Failed to add comment', 
-      code: err.code || 'DB_ERROR' 
+    next({ status: err.status || 500, message: err.message || 'Failed to add comment', code: err.code || 'DB_ERROR' });
+  }
+});
+
+// --- Complaint detail ---
+router.get('/complaints/:id', tryAuthenticate, async (req, res, next) => {
+  const id = req.params.id;
+  try {
+    const [rows] = await db.execute(`
+      SELECT c.*, u.name as user_name
+      FROM complaints c
+      LEFT JOIN users u ON c.user_id = u.id
+      WHERE c.id = ?
+    `, [id]);
+
+    if (rows.length === 0) return next({ status: 404, message: 'Complaint not found', code: 'COMPLAINT_NOT_FOUND' });
+    const complaint = rows[0];
+
+    const user = req.user;
+    if (!user) return next({ status: 401, message: 'Authentication required', code: 'UNAUTHORIZED' });
+
+    // Access rules similar to comments
+    if (complaint.visibility === 'PRIVATE' && !(user.role === 'ADMIN' || user.id === complaint.user_id || complaint.assigned_officer_id === user.id)) {
+      return next({ status: 403, message: 'Forbidden', code: 'FORBIDDEN' });
+    }
+
+    if (user.role === 'CITIZEN' && user.id !== complaint.user_id) return next({ status: 403, message: 'Forbidden', code: 'FORBIDDEN' });
+    if (user.role === 'OFFICER' && !(user.ward === complaint.ward || complaint.assigned_officer_id === user.id) && user.role !== 'ADMIN') {
+      return next({ status: 403, message: 'Forbidden', code: 'FORBIDDEN' });
+    }
+
+    // Attachments
+    const [attachments] = await db.execute('SELECT id, file_url, uploaded_at FROM complaint_attachments WHERE complaint_id = ? ORDER BY uploaded_at DESC', [id]);
+
+    // Status history
+    const [history] = await db.execute('SELECT * FROM complaint_status_history WHERE complaint_id = ? ORDER BY changed_at DESC', [id]);
+
+    // Comments filtered by visibility
+    const [allComments] = await db.execute(`
+      SELECT c.*, u.name as user_name, u.role as user_role
+      FROM comments c
+      LEFT JOIN users u ON c.user_id = u.id
+      WHERE c.complaint_id = ?
+      ORDER BY c.created_at DESC
+    `, [id]);
+
+    const filteredComments = allComments.filter((c) => {
+      const v = c.visibility || 'PUBLIC';
+      if (v === 'PUBLIC') return true;
+      if (v === 'PRIVATE') return user.role === 'ADMIN' || user.id === complaint.user_id || complaint.assigned_officer_id === user.id;
+      if (v === 'INTERNAL') return user.role === 'ADMIN' || (user.role === 'OFFICER' && (user.ward === complaint.ward || complaint.assigned_officer_id === user.id));
+      return false;
     });
+
+    res.success({ complaint, attachments, history, comments: filteredComments }, 'Complaint detail retrieved');
+  } catch (err) {
+    next({ status: 500, message: 'Failed to fetch complaint', code: 'DB_ERROR' });
+  }
+});
+
+// --- Assign complaint (admin only) ---
+router.post('/complaints/:id/assign', requireAuth, async (req, res, next) => {
+  const id = req.params.id;
+  const { officerId } = req.body;
+  const user = req.user;
+  if (user.role !== 'ADMIN') return next({ status: 403, message: 'Only admin can assign complaints', code: 'FORBIDDEN' });
+
+  try {
+    // Verify officer exists
+    const [offRows] = await db.execute('SELECT id, role FROM users WHERE id = ?', [officerId]);
+    if (offRows.length === 0 || offRows[0].role !== 'OFFICER') return next({ status: 400, message: 'Invalid officer id', code: 'INVALID_OFFICER' });
+
+    await db.execute('UPDATE complaints SET assigned_officer_id = ? WHERE id = ?', [officerId, id]);
+
+    res.success({ id, assigned_officer_id: officerId }, 'Complaint assigned successfully');
+  } catch (err) {
+    next({ status: 500, message: 'Failed to assign complaint', code: 'DB_ERROR' });
+  }
+});
+
+// --- Update status ---
+router.post('/complaints/:id/status', requireAuth, async (req, res, next) => {
+  const id = req.params.id;
+  const { status } = req.body;
+  const user = req.user;
+  const allowed = ['PENDING','IN_REVIEW','RESOLVED','CLOSED'];
+  if (!allowed.includes(status)) return next({ status: 400, message: 'Invalid status', code: 'INVALID_STATUS' });
+
+  try {
+    const [rows] = await db.execute('SELECT * FROM complaints WHERE id = ?', [id]);
+    if (rows.length === 0) return next({ status: 404, message: 'Complaint not found', code: 'COMPLAINT_NOT_FOUND' });
+    const complaint = rows[0];
+
+    // Only admin or assigned officer or officer in ward can change
+    if (user.role === 'CITIZEN') return next({ status: 403, message: 'Forbidden', code: 'FORBIDDEN' });
+    if (user.role === 'OFFICER' && !(user.id === complaint.assigned_officer_id || user.ward === complaint.ward)) {
+      return next({ status: 403, message: 'Officers can only update complaints in their ward or assigned to them', code: 'FORBIDDEN' });
+    }
+
+    await db.execute('UPDATE complaints SET status = ?, updated_at = NOW() WHERE id = ?', [status, id]);
+    await db.execute('INSERT INTO complaint_status_history (complaint_id, status, changed_by, changed_at) VALUES (?, ?, ?, NOW())', [id, status, user.id]);
+
+    res.success({ id, status }, 'Complaint status updated');
+  } catch (err) {
+    next({ status: 500, message: 'Failed to update status', code: 'DB_ERROR' });
   }
 });
 

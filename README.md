@@ -21,18 +21,12 @@ A bilingual (English/Bangla) digital complaint management system for Union Paris
 
 ### Backend
 - Node.js + Express
-- Prisma ORM
 - MySQL Database
 - Clerk JWT Verification
 
 ## Getting Started
 
-1. Clone the repository:
-\`\`\`bash
-git clone https://github.com/yourusername/union-parishad-digital-complaint-box.git
-\`\`\`
-
-2. Install dependencies:
+1. Install dependencies:
 \`\`\`bash
 # Install frontend dependencies
 cd frontend
@@ -43,17 +37,16 @@ cd ../backend
 npm install
 \`\`\`
 
-3. Set up environment variables:
+2. Set up environment variables:
 - Copy .env.example to .env
 - Fill in your Clerk and Database credentials
 
-4. Set up the database:
+3. Set up the database:
 \`\`\`bash
 cd backend
-npx prisma migrate dev
 \`\`\`
 
-5. Run the development servers:
+45. Run the development servers:
 \`\`\`bash
 # Terminal 1 - Frontend
 cd frontend
@@ -75,8 +68,6 @@ npm run dev
 ### Backend
 - \`npm run dev\`: Start development server
 - \`npm start\`: Start production server
-- \`npm run prisma:generate\`: Generate Prisma client
-- \`npm run prisma:migrate\`: Run database migrations
 
 ## Contributing
 

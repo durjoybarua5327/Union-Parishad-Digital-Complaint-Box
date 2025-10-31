@@ -1,0 +1,37 @@
+{
+  "name": "union-parishad-digital-complaint-box-backend",
+  "version": "1.0.0",
+  "description": "Backend for Union Parishad Digital Complaint Box",
+  "type": "module",
+  "main": "src/index.js",
+  "scripts": {
+    "start": "node src/index.js",
+    "dev": "nodemon src/index.js"
+  },
+  "dependencies": {
+    "@clerk/clerk-sdk-node": "^4.13.23",
+    "body-parser": "^2.2.0",
+    "cors": "^2.8.5",
+    "dotenv": "^16.6.1",
+    "express": "^4.21.2",
+    "multer": "^1.4.5-lts.1",
+    "mysql2": "^3.15.3"
+  },
+
+  "optionalDependencies": {
+    "bcryptjs": "^2.4.3",
+    "jsonwebtoken": "^9.0.0"
+  },
+  "devDependencies": {
+    "nodemon": "^3.1.10"
+  },
+  "keywords": [
+    "union-parishad",
+    "complaint",
+    "backend",
+    "express",
+    "mysql"
+  ],
+  "author": "",
+  "license": "ISC"
+}

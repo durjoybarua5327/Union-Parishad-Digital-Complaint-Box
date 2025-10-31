@@ -3,7 +3,8 @@
 import { useState } from "react";
 import { createComplaint } from "@/utils/api";
 import { useRouter } from "next/navigation";
-import { withAuth } from "@/app/auth";
+import { withProfileCheck } from "@/components/withProfileCheck";
+import toast from "react-hot-toast";
 
 // Predefined categories and wards for consistent data
 const CATEGORIES = [
@@ -19,6 +20,9 @@ const CATEGORIES = [
 
 const WARDS = Array.from({ length: 9 }, (_, i) => (i + 1).toString());
 
+const MAX_FILE_SIZE = 10 * 1024 * 1024; // 10MB
+const ALLOWED_FILE_TYPES = ["image/jpeg", "image/png", "image/gif"];
+
 function CreateComplaintPage() {
   const router = useRouter();
   const [form, setForm] = useState({
@@ -30,33 +34,100 @@ function CreateComplaintPage() {
     priority: "MEDIUM",
     visibility: "PUBLIC",
   });
-  const [imageFiles, setImageFiles] = useState([]);
+  const [images, setImages] = useState([]);
   const [imagePreviewUrls, setImagePreviewUrls] = useState([]);
   const [loading, setLoading] = useState(false);
-  const [error, setError] = useState(null);
+
+  const validateForm = () => {
+    if (form.title.length < 10) {
+      toast.error("Title must be at least 10 characters long");
+      return false;
+    }
+    if (form.description.length < 30) {
+      toast.error("Description must be at least 30 characters long");
+      return false;
+    }
+    if (!form.category) {
+      toast.error("Please select a category");
+      return false;
+    }
+    if (!form.ward) {
+      toast.error("Please select a ward number");
+      return false;
+    }
+    if (!form.address.trim()) {
+      toast.error("Please provide an address");
+      return false;
+    }
+    return true;
+  };
 
   const handleChange = (e) => {
     setForm({ ...form, [e.target.name]: e.target.value });
   };
 
+  const validateImage = (file) => {
+    if (!ALLOWED_FILE_TYPES.includes(file.type)) {
+      toast.error(`File ${file.name} is not a supported image type`);
+      return false;
+    }
+    if (file.size > MAX_FILE_SIZE) {
+      toast.error(`File ${file.name} is larger than 10MB`);
+      return false;
+    }
+    return true;
+  };
+
   const handleImages = (e) => {
-    setImages(e.target.files);
+    const files = Array.from(e.target.files);
+    const validFiles = files.filter(validateImage);
+    
+    if (validFiles.length > 0) {
+      setImages(prev => [...prev, ...validFiles]);
+      
+      // Generate preview URLs
+      validFiles.forEach(file => {
+        const reader = new FileReader();
+        reader.onloadend = () => {
+          setImagePreviewUrls(prev => [...prev, reader.result]);
+        };
+        reader.readAsDataURL(file);
+      });
+      
+      toast.success(`${validFiles.length} image(s) added successfully`);
+    }
+  };
+
+  const removeImage = (index) => {
+    setImages(prev => prev.filter((_, i) => i !== index));
+    setImagePreviewUrls(prev => prev.filter((_, i) => i !== index));
+    toast.success("Image removed");
   };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
+    
+    if (!validateForm()) {
+      return;
+    }
+
     setLoading(true);
-    setError(null);
+    const submitToast = toast.loading("Submitting your complaint...");
 
     try {
       const formData = new FormData();
-      for (const key in form) formData.append(key, form[key]);
-      for (const file of images) formData.append("images", file);
+      for (const key in form) {
+        formData.append(key, form[key]);
+      }
+      images.forEach(file => {
+        formData.append("images", file);
+      });
 
       await createComplaint(formData);
+      toast.success("Complaint submitted successfully!", { id: submitToast });
       router.push("/complaints");
     } catch (err) {
-      setError(err.message);
+      toast.error(err.message || "Failed to submit complaint", { id: submitToast });
     } finally {
       setLoading(false);
     }
@@ -71,11 +142,7 @@ function CreateComplaintPage() {
         </p>
       </div>
 
-      {error && (
-        <div className="mb-6 p-4 text-sm text-red-600 bg-red-50 dark:bg-red-900/10 dark:text-red-400 rounded-lg">
-          {error}
-        </div>
-      )}
+      
 
       <form className="space-y-6" onSubmit={handleSubmit}>
         {/* Title */}
@@ -252,7 +319,7 @@ function CreateComplaintPage() {
             type="file"
             multiple
             accept="image/*"
-            onChange={handleImageChange}
+            onChange={handleImages}
             className="hidden"
           />
           <div className="mt-1 flex justify-center px-6 pt-5 pb-6 border-2 border-gray-300 dark:border-gray-700 border-dashed rounded-lg hover:border-blue-500 dark:hover:border-blue-400 transition cursor-pointer"
@@ -352,3 +419,6 @@ function CreateComplaintPage() {
     </div>
   );
 }
+
+// Wrap the component with profile check
+export default withProfileCheck(CreateComplaintPage);

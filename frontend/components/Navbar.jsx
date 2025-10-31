@@ -1,10 +1,10 @@
 "use client";
 
-import { useAuth } from "@/app/auth";
+import { UserButton, useAuth } from "@clerk/nextjs";
 import Link from "next/link";
 
 export default function Navbar() {
-  const { user, logout } = useAuth();
+  const { isSignedIn } = useAuth();
 
   return (
     <nav className="w-full bg-white/80 dark:bg-gray-900/80 backdrop-blur-md shadow-sm sticky top-0 z-50">
@@ -16,47 +16,29 @@ export default function Navbar() {
           Union Parishad Digital Complaint Box
         </Link>
         <div className="flex items-center gap-6 text-sm sm:text-base">
-          {!user ? (
+          {!isSignedIn ? (
             <>
               <Link
-                href="/login"
+                href="/sign-in"
                 className="hover:text-blue-600 dark:hover:text-blue-400 transition"
               >
-                Login
+                Sign In
               </Link>
               <Link
-                href="/register"
+                href="/sign-up"
                 className="hover:text-blue-600 dark:hover:text-blue-400 transition"
               >
-                Register
+                Sign Up
               </Link>
             </>
           ) : (
             <>
-              {user.role === "ADMIN" && (
-                <Link
-                  href="/admin"
-                  className="hover:text-blue-600 dark:hover:text-blue-400 transition"
-                >
-                  Admin Dashboard
-                </Link>
-              )}
-              {user.role === "OFFICER" && (
-                <Link
-                  href="/officer"
-                  className="hover:text-blue-600 dark:hover:text-blue-400 transition"
-                >
-                  Officer Dashboard
-                </Link>
-              )}
-              {user.role === "CITIZEN" && (
-                <Link
-                  href="/dashboard"
-                  className="hover:text-blue-600 dark:hover:text-blue-400 transition"
-                >
-                  My Complaints
-                </Link>
-              )}
+              <Link
+                href="/dashboard"
+                className="hover:text-blue-600 dark:hover:text-blue-400 transition"
+              >
+                Dashboard
+              </Link>
               <Link
                 href="/complaints"
                 className="hover:text-blue-600 dark:hover:text-blue-400 transition"
@@ -75,12 +57,7 @@ export default function Navbar() {
               >
                 Notifications
               </Link>
-              <button
-                onClick={logout}
-                className="hover:text-blue-600 dark:hover:text-blue-400 transition"
-              >
-                Logout
-              </button>
+              <UserButton afterSignOutUrl="/" />
             </>
           )}
         </div>

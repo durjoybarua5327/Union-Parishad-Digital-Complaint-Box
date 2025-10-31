@@ -22,12 +22,16 @@ export async function initDatabase() {
   // Users table
   await pool.query(`
     CREATE TABLE IF NOT EXISTS users (
-      id INT AUTO_INCREMENT PRIMARY KEY,
-      name VARCHAR(100) NOT NULL,
-      email VARCHAR(100) UNIQUE NOT NULL,
-      password VARCHAR(255) NOT NULL,
+      id VARCHAR(50) PRIMARY KEY,
+      full_name VARCHAR(100),
+      nid_number VARCHAR(20),
+      phone_number VARCHAR(20),
+      address VARCHAR(255),
+      ward_no VARCHAR(10),
+      date_of_birth DATE,
+      email VARCHAR(100) UNIQUE,
+      password VARCHAR(255),
       role ENUM('citizen', 'officer', 'admin') DEFAULT 'citizen',
-      ward_no VARCHAR(50),
       created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
     )
   `);
@@ -36,11 +40,11 @@ export async function initDatabase() {
   await pool.query(`
     CREATE TABLE IF NOT EXISTS complaints (
       id INT AUTO_INCREMENT PRIMARY KEY,
-      user_id INT NOT NULL,
+      user_id VARCHAR(50) NOT NULL,
       title VARCHAR(255) NOT NULL,
       description TEXT,
       category VARCHAR(100),
-      ward_no VARCHAR(50),
+      ward_no VARCHAR(10),
       image_url VARCHAR(255),
       visibility ENUM('public', 'private') DEFAULT 'public',
       status ENUM('Pending', 'In Progress', 'Resolved', 'Closed') DEFAULT 'Pending',
@@ -55,7 +59,7 @@ export async function initDatabase() {
     CREATE TABLE IF NOT EXISTS comments (
       id INT AUTO_INCREMENT PRIMARY KEY,
       complaint_id INT NOT NULL,
-      user_id INT NOT NULL,
+      user_id VARCHAR(50) NOT NULL,
       comment TEXT NOT NULL,
       created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
       FOREIGN KEY (complaint_id) REFERENCES complaints(id) ON DELETE CASCADE,
@@ -68,7 +72,7 @@ export async function initDatabase() {
     CREATE TABLE IF NOT EXISTS assignments (
       id INT AUTO_INCREMENT PRIMARY KEY,
       complaint_id INT NOT NULL,
-      officer_id INT NOT NULL,
+      officer_id VARCHAR(50) NOT NULL,
       assigned_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
       FOREIGN KEY (complaint_id) REFERENCES complaints(id) ON DELETE CASCADE,
       FOREIGN KEY (officer_id) REFERENCES users(id) ON DELETE CASCADE

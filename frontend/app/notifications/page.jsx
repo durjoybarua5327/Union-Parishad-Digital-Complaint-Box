@@ -2,24 +2,31 @@
 
 import { useEffect, useState } from "react";
 import { apiFetch } from "@/utils/api";
-import { withAuth } from "@/app/auth";
+import { useAuth } from "@/app/auth"; // useAuth hook
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 
-function NotificationsPage() {
+export default function NotificationsPage() {
+  const { isSignedIn } = useAuth();
+  const router = useRouter();
   const [notifications, setNotifications] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
 
   useEffect(() => {
-    fetchNotifications();
-  }, []);
+    if (!isSignedIn) {
+      router.push("/login"); // redirect if not signed in
+    } else {
+      fetchNotifications();
+    }
+  }, [isSignedIn]);
 
   const fetchNotifications = async () => {
     try {
       const response = await apiFetch("/api/notifications");
       setNotifications(response.data);
     } catch (err) {
-      setError(err.message);
+      setError(err.message || "Failed to fetch notifications");
     } finally {
       setLoading(false);
     }
@@ -168,5 +175,3 @@ function NotificationsPage() {
     </div>
   );
 }
-
-export default withAuth(NotificationsPage);

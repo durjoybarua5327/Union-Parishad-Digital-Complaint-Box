@@ -10,12 +10,24 @@ const connectionPromise = mysql.createConnection({
 });
 
 // Create a pool for queries
-export const db = mysql.createPool({
+export let db = mysql.createPool({
   host: 'localhost',
   user: 'root',
   password: '',
   database: DB_NAME,
+  waitForConnections: true,
+  connectionLimit: 10,
+  queueLimit: 0,
 });
+
+// Helper to safely add columns if missing
+async function addColumnIfNotExists(table, columnDef) {
+  const columnName = columnDef.split(' ')[0];
+  const [rows] = await db.query(`SHOW COLUMNS FROM \`${table}\` LIKE ?`, [columnName]);
+  if (rows.length === 0) {
+    await db.query(`ALTER TABLE \`${table}\` ADD COLUMN ${columnDef}`);
+  }
+}
 
 // Initialize database and tables
 export async function initDB() {
@@ -23,7 +35,7 @@ export async function initDB() {
   await conn.query(`CREATE DATABASE IF NOT EXISTS \`${DB_NAME}\``);
   await conn.end();
 
-  // USERS (added nid_number and nid_image)
+  // USERS table
   await db.execute(`
     CREATE TABLE IF NOT EXISTS users (
       id INT AUTO_INCREMENT PRIMARY KEY,
@@ -39,7 +51,7 @@ export async function initDB() {
     )
   `);
 
-  // WARDS
+  // WARDS table
   await db.execute(`
     CREATE TABLE IF NOT EXISTS wards (
       id INT PRIMARY KEY,
@@ -49,7 +61,7 @@ export async function initDB() {
     )
   `);
 
-  // COMPLAINTS
+  // COMPLAINTS table
   await db.execute(`
     CREATE TABLE IF NOT EXISTS complaints (
       id INT AUTO_INCREMENT PRIMARY KEY,
@@ -98,6 +110,7 @@ export async function initDB() {
       complaint_id INT,
       user_id INT,
       content TEXT,
+      visibility ENUM('PUBLIC','PRIVATE','INTERNAL') DEFAULT 'PUBLIC',
       created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
       FOREIGN KEY (complaint_id) REFERENCES complaints(id) ON DELETE CASCADE,
       FOREIGN KEY (user_id) REFERENCES users(id)
@@ -118,11 +131,9 @@ export async function initDB() {
     )
   `);
 
-  // Add visibility and assignment columns if missing (safe on repeated runs)
-  await db.execute(`ALTER TABLE complaints ADD COLUMN IF NOT EXISTS visibility ENUM('PUBLIC','PRIVATE') DEFAULT 'PUBLIC'`);
-  await db.execute(`ALTER TABLE complaints ADD COLUMN IF NOT EXISTS assigned_officer_id INT NULL`);
-  // Comment visibility: PUBLIC (citizen+officer+admin), PRIVATE (citizen+admin), INTERNAL (officers+admin)
-  await db.execute(`ALTER TABLE comments ADD COLUMN IF NOT EXISTS visibility ENUM('PUBLIC','PRIVATE','INTERNAL') DEFAULT 'PUBLIC'`);
+  // Safely add extra columns if missing
+  await addColumnIfNotExists('complaints', 'visibility ENUM(\'PUBLIC\',\'PRIVATE\') DEFAULT \'PUBLIC\'');
+  await addColumnIfNotExists('complaints', 'assigned_officer_id INT NULL');
 
-  console.log(`Database "${DB_NAME}" and tables are ready.`);
+  console.log(`✅ Database "${DB_NAME}" and tables are ready.`);
 }

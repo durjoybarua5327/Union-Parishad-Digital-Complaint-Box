@@ -1,14 +1,16 @@
+// backend/server.js
 import nextConnect from 'next-connect';
 import multer from 'multer';
 import path from 'path';
 import fs from 'fs';
 import bcrypt from 'bcrypt';
 import jwt from 'jsonwebtoken';
+import cors from 'cors';
 import { db, initDB } from './db';
 
 initDB(); // Initialize DB
 
-const JWT_SECRET = 'supersecretkey'; // use env variable in production
+const JWT_SECRET = process.env.JWT_SECRET || 'supersecretkey';
 
 // Multer setup
 const upload = multer({
@@ -22,8 +24,27 @@ const upload = multer({
   }),
 });
 
-// Middleware
+// Create handler
 const handler = nextConnect();
+
+// Enable CORS
+handler.use(cors({
+  origin: 'http://localhost:3000', // frontend URL
+  methods: ['GET','POST','PUT','DELETE','OPTIONS'],
+  credentials: true,
+}));
+
+// Parse JSON bodies
+handler.use((req, res, next) => {
+  if (!['GET','DELETE'].includes(req.method)) {
+    let body = '';
+    req.on('data', chunk => { body += chunk.toString(); });
+    req.on('end', () => {
+      try { req.body = body ? JSON.parse(body) : {}; } catch { req.body = {}; }
+      next();
+    });
+  } else next();
+});
 
 // Format response
 handler.use((req, res, next) => {
@@ -59,7 +80,7 @@ const requireRole = (roles = []) => (req, res, next) => {
 };
 
 // ------------------- AUTH -------------------
-// Register (with NID image)
+// Register
 handler.post('/api/users/register', upload.single('nid_image'), async (req, res) => {
   const { name, email, password, role, ward, nid_number } = req.body;
   if (!name || !email || !password || !nid_number || !req.file)
@@ -95,7 +116,7 @@ handler.post('/api/users/login', async (req, res) => {
 });
 
 // ------------------- COMPLAINTS -------------------
-// Submit complaint (CITIZEN)
+// Submit complaint
 handler.post('/api/complaints', requireRole(['CITIZEN']), upload.array('images', 5), async (req, res) => {
   const { title, description, category, ward, address } = req.body;
   const userId = req.user.id;
@@ -115,19 +136,19 @@ handler.post('/api/complaints', requireRole(['CITIZEN']), upload.array('images',
   res.status(201).success({ id: complaint.insertId }, 'Complaint submitted');
 });
 
-// Update complaint status (OFFICER / ADMIN)
-handler.post('/api/complaints/status', requireRole(['OFFICER', 'ADMIN']), async (req, res) => {
+// Update complaint status
+handler.post('/api/complaints/status', requireRole(['OFFICER','ADMIN']), async (req, res) => {
   const { complaintId, status } = req.body;
-  const changedBy = req.user.id;
   if (!complaintId || !status) return res.status(400).json({ success: false, message: 'Missing fields' });
 
+  const changedBy = req.user.id;
   await db.execute('UPDATE complaints SET status=? WHERE id=?', [status, complaintId]);
   await db.execute('INSERT INTO complaint_status_history (complaint_id,status,changed_by) VALUES (?,?,?)', [complaintId, status, changedBy]);
 
   res.success(null, 'Status updated');
 });
 
-// Add comment (All roles)
+// Add comment
 handler.post('/api/comments', requireRole(['CITIZEN','OFFICER','ADMIN']), async (req, res) => {
   const { complaintId, content } = req.body;
   const userId = req.user.id;
@@ -145,17 +166,16 @@ handler.get('/api/complaints', requireRole(['CITIZEN','OFFICER','ADMIN']), async
 
   if (req.user.role === 'CITIZEN') { query += ' AND c.user_id=?'; params.push(req.user.id); }
   if (req.user.role === 'OFFICER') { query += ' AND c.ward IN (SELECT id FROM wards WHERE officer_id=?)'; params.push(req.user.id); }
-  // ADMIN sees all
 
   if (category) { query += ' AND c.category=?'; params.push(category); }
   if (status) { query += ' AND c.status=?'; params.push(status); }
-  query += ' ORDER BY c.created_at DESC';
 
+  query += ' ORDER BY c.created_at DESC';
   const [rows] = await db.execute(query, params);
   res.success(rows, 'Complaints retrieved');
 });
 
-// ------------------- NOTIFICATIONS -------------------
+// Notifications
 handler.get('/api/notifications/:userId', requireRole(['CITIZEN','OFFICER','ADMIN']), async (req, res) => {
   const { userId } = req.query;
   const [rows] = await db.execute('SELECT * FROM notifications WHERE user_id=? ORDER BY created_at DESC', [userId]);

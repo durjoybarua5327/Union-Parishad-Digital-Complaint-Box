@@ -6,7 +6,7 @@ import { useUser } from "@clerk/nextjs";
 import { apiFetch } from "@/utils/api";
 import toast from "react-hot-toast";
 
-export default function withProfileCheck(WrappedComponent) {
+export function withProfileCheck(WrappedComponent) {
   return function ProfileCheckWrapper(props) {
     const { user, isLoaded } = useUser();
     const router = useRouter();
@@ -53,3 +53,6 @@ export default function withProfileCheck(WrappedComponent) {
     return <WrappedComponent {...props} />;
   };
 }
+
+// keep a default export for modules that import the HOC as default
+export default withProfileCheck;

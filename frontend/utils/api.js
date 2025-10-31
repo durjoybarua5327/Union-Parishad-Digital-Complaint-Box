@@ -1,8 +1,6 @@
-// frontend/utils/api.js
 "use client";
 
 // ✅ Set API base from environment or fallback
-// Use your backend port (default 3001)
 const API_BASE = process.env.NEXT_PUBLIC_API_URL || "http://localhost:3001";
 
 // ✅ Helper: Retrieve stored JWT token
@@ -13,7 +11,7 @@ export const getToken = () => {
   return null;
 };
 
-// Helper: get stored user
+// ✅ Helper: Retrieve stored user
 export const getUser = () => {
   if (typeof window !== "undefined") {
     try {
@@ -36,10 +34,7 @@ export async function apiFetch(endpoint, options = {}) {
     ...options.headers,
   };
 
-  const res = await fetch(`${API_BASE}${endpoint}`, {
-    ...options,
-    headers,
-  });
+  const res = await fetch(`${API_BASE}${endpoint}`, { ...options, headers });
 
   let data;
   try {
@@ -59,7 +54,7 @@ export async function apiFetch(endpoint, options = {}) {
 export async function apiUpload(endpoint, formData) {
   const token = getToken();
 
-  const headers = token ? { Authorization: `Bearer ${token}` } : {};
+  const headers = token ? { Authorization: `Bearer ${token}` } : {}; // DO NOT set Content-Type manually
 
   const res = await fetch(`${API_BASE}${endpoint}`, {
     method: "POST",
@@ -81,7 +76,7 @@ export async function apiUpload(endpoint, formData) {
   return data;
 }
 
-// ✅ Example: Login
+// ✅ Login
 export async function loginUser(email, password) {
   const res = await apiFetch("/api/users/login", {
     method: "POST",
@@ -96,7 +91,7 @@ export async function loginUser(email, password) {
   return res;
 }
 
-// ✅ Example: Register
+// ✅ Register
 export async function registerUser(userData) {
   return await apiFetch("/api/users/register", {
     method: "POST",
@@ -104,14 +99,22 @@ export async function registerUser(userData) {
   });
 }
 
-// ✅ Example: Get complaints (role-based)
+// ✅ Get complaints (role-based)
 export async function getComplaints(params = {}) {
   const query = new URLSearchParams(params).toString();
   const endpoint = `/api/complaints${query ? `?${query}` : ""}`;
   return await apiFetch(endpoint, { method: "GET" });
 }
 
-// ✅ Example: Create complaint
+// ✅ Create complaint (with images)
 export async function createComplaint(formData) {
   return await apiUpload("/api/complaints", formData);
 }
+
+// ✅ Logout helper
+export const logoutUser = () => {
+  if (typeof window !== "undefined") {
+    localStorage.removeItem("token");
+    localStorage.removeItem("user");
+  }
+};

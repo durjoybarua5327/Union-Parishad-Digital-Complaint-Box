@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { apiFetch } from "@/utils/api";
+// Directly fetch notifications from backend API
 import { useAuth } from "@/app/auth"; // useAuth hook
 import Link from "next/link";
 import { useRouter } from "next/navigation";
@@ -23,8 +23,10 @@ export default function NotificationsPage() {
 
   const fetchNotifications = async () => {
     try {
-      const response = await apiFetch("/api/notifications");
-      setNotifications(response.data);
+  const res = await fetch("http://localhost:5000/api/notifications");
+  if (!res.ok) throw new Error("Failed to fetch notifications");
+  const data = await res.json();
+  setNotifications(data);
     } catch (err) {
       setError(err.message || "Failed to fetch notifications");
     } finally {
@@ -34,7 +36,7 @@ export default function NotificationsPage() {
 
   const markAsRead = async (id) => {
     try {
-      await apiFetch(`/api/notifications/${id}/read`, {
+      await fetch(`http://localhost:5000/api/notifications/${id}/read`, {
         method: "POST",
       });
       setNotifications((prev) =>
@@ -49,7 +51,7 @@ export default function NotificationsPage() {
 
   const markAllAsRead = async () => {
     try {
-      await apiFetch("/api/notifications/read-all", {
+      await fetch("http://localhost:5000/api/notifications/read-all", {
         method: "POST",
       });
       setNotifications((prev) =>

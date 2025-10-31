@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { useParams } from "next/navigation";
-import { apiFetch } from "@/utils/api";
+// Directly fetch complaint details from backend API
 import { useAuth } from "@/app/auth";
 
 export default function ComplaintDetailPage() {
@@ -19,10 +19,11 @@ export default function ComplaintDetailPage() {
 
   const fetchComplaint = async () => {
     try {
-      const res = await apiFetch(`/api/complaints/${id}`);
-      // backend returns { complaint, attachments, history, comments }
-      setComplaint(res.data.complaint);
-      setComments(res.data.comments || []);
+      const res = await fetch(`http://localhost:5000/api/complaints/${id}`);
+      if (!res.ok) throw new Error("Failed to fetch complaint");
+      const data = await res.json();
+      setComplaint(data);
+      setComments([]); // No comments in backend demo
     } catch (err) {
       setError(err.message);
     } finally {
@@ -33,7 +34,7 @@ export default function ComplaintDetailPage() {
   const handleComment = async () => {
     if (!newComment) return;
     try {
-      await apiFetch("/api/comments", {
+      await fetchWrapper("/api/comments", {
         method: "POST",
         body: JSON.stringify({ complaintId: id, content: newComment, visibility }),
       });

@@ -1,139 +1,90 @@
-import mysql from 'mysql2/promise';
+import mysql from "mysql2/promise";
 
-const DB_NAME = 'union_parishad';
-
-// Connect to MySQL server without database first
-const connectionPromise = mysql.createConnection({
-  host: 'localhost',
-  user: 'root',
-  password: '', // Your MySQL password
-});
-
-// Create a pool for queries
-export let db = mysql.createPool({
-  host: 'localhost',
-  user: 'root',
-  password: '',
-  database: DB_NAME,
+// Create a connection pool for reusability
+const pool = mysql.createPool({
+  host: process.env.DB_HOST || "localhost",
+  user: process.env.DB_USER || "root",
+  password: process.env.DB_PASSWORD || "",
   waitForConnections: true,
   connectionLimit: 10,
   queueLimit: 0,
 });
 
-// Helper to safely add columns if missing
-async function addColumnIfNotExists(table, columnDef) {
-  const columnName = columnDef.split(' ')[0];
-  const [rows] = await db.query(`SHOW COLUMNS FROM \`${table}\` LIKE ?`, [columnName]);
-  if (rows.length === 0) {
-    await db.query(`ALTER TABLE \`${table}\` ADD COLUMN ${columnDef}`);
-  }
-}
+export async function initDatabase() {
+  // 1️⃣ Create database if not exists
+  await pool.query(`CREATE DATABASE IF NOT EXISTS union_parishad`);
+  await pool.query(`USE union_parishad`);
 
-// Initialize database and tables
-export async function initDB() {
-  const conn = await connectionPromise;
-  await conn.query(`CREATE DATABASE IF NOT EXISTS \`${DB_NAME}\``);
-  await conn.end();
+  console.log('✅ Database "union_parishad" connected.');
 
-  // USERS table
-  await db.execute(`
+  // 2️⃣ Create tables if not exist
+
+  // Users table
+  await pool.query(`
     CREATE TABLE IF NOT EXISTS users (
       id INT AUTO_INCREMENT PRIMARY KEY,
-      name VARCHAR(255) NOT NULL,
-      email VARCHAR(255) UNIQUE NOT NULL,
-      password_hash VARCHAR(255) NOT NULL,
-      role ENUM('CITIZEN','OFFICER','ADMIN') DEFAULT 'CITIZEN',
-      ward INT,
-      nid_number VARCHAR(50) UNIQUE,
-      nid_image VARCHAR(255),
-      created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-      updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+      name VARCHAR(100) NOT NULL,
+      email VARCHAR(100) UNIQUE NOT NULL,
+      password VARCHAR(255) NOT NULL,
+      role ENUM('citizen', 'officer', 'admin') DEFAULT 'citizen',
+      ward_no VARCHAR(50),
+      created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
     )
   `);
 
-  // WARDS table
-  await db.execute(`
-    CREATE TABLE IF NOT EXISTS wards (
-      id INT PRIMARY KEY,
-      name VARCHAR(255),
-      officer_id INT,
-      FOREIGN KEY (officer_id) REFERENCES users(id)
-    )
-  `);
-
-  // COMPLAINTS table
-  await db.execute(`
+  // Complaints table
+  await pool.query(`
     CREATE TABLE IF NOT EXISTS complaints (
       id INT AUTO_INCREMENT PRIMARY KEY,
-      title VARCHAR(255),
+      user_id INT NOT NULL,
+      title VARCHAR(255) NOT NULL,
       description TEXT,
-      category ENUM('ROAD','WATER','ELECTRICITY','GARBAGE','HEALTH','OTHERS'),
-      status ENUM('PENDING','IN_REVIEW','RESOLVED') DEFAULT 'PENDING',
-      ward INT,
-      address VARCHAR(255),
-      user_id INT,
+      category VARCHAR(100),
+      ward_no VARCHAR(50),
+      image_url VARCHAR(255),
+      visibility ENUM('public', 'private') DEFAULT 'public',
+      status ENUM('Pending', 'In Progress', 'Resolved', 'Closed') DEFAULT 'Pending',
       created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
       updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-      FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
-      FOREIGN KEY (ward) REFERENCES wards(id)
+      FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
     )
   `);
 
-  // COMPLAINT ATTACHMENTS
-  await db.execute(`
-    CREATE TABLE IF NOT EXISTS complaint_attachments (
-      id INT AUTO_INCREMENT PRIMARY KEY,
-      complaint_id INT,
-      file_url VARCHAR(255),
-      uploaded_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-      FOREIGN KEY (complaint_id) REFERENCES complaints(id) ON DELETE CASCADE
-    )
-  `);
-
-  // COMPLAINT STATUS HISTORY
-  await db.execute(`
-    CREATE TABLE IF NOT EXISTS complaint_status_history (
-      id INT AUTO_INCREMENT PRIMARY KEY,
-      complaint_id INT,
-      status ENUM('PENDING','IN_REVIEW','RESOLVED'),
-      changed_by INT,
-      changed_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-      FOREIGN KEY (complaint_id) REFERENCES complaints(id) ON DELETE CASCADE,
-      FOREIGN KEY (changed_by) REFERENCES users(id)
-    )
-  `);
-
-  // COMMENTS
-  await db.execute(`
+  // Comments table
+  await pool.query(`
     CREATE TABLE IF NOT EXISTS comments (
       id INT AUTO_INCREMENT PRIMARY KEY,
-      complaint_id INT,
-      user_id INT,
-      content TEXT,
-      visibility ENUM('PUBLIC','PRIVATE','INTERNAL') DEFAULT 'PUBLIC',
+      complaint_id INT NOT NULL,
+      user_id INT NOT NULL,
+      comment TEXT NOT NULL,
       created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
       FOREIGN KEY (complaint_id) REFERENCES complaints(id) ON DELETE CASCADE,
-      FOREIGN KEY (user_id) REFERENCES users(id)
+      FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
     )
   `);
 
-  // NOTIFICATIONS
-  await db.execute(`
-    CREATE TABLE IF NOT EXISTS notifications (
+  // Assignment table (optional: to assign officers to complaints)
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS assignments (
       id INT AUTO_INCREMENT PRIMARY KEY,
-      user_id INT,
-      complaint_id INT,
-      message TEXT,
-      is_read BOOLEAN DEFAULT FALSE,
-      created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-      FOREIGN KEY (user_id) REFERENCES users(id),
-      FOREIGN KEY (complaint_id) REFERENCES complaints(id) ON DELETE CASCADE
+      complaint_id INT NOT NULL,
+      officer_id INT NOT NULL,
+      assigned_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+      FOREIGN KEY (complaint_id) REFERENCES complaints(id) ON DELETE CASCADE,
+      FOREIGN KEY (officer_id) REFERENCES users(id) ON DELETE CASCADE
     )
   `);
 
-  // Safely add extra columns if missing
-  await addColumnIfNotExists('complaints', 'visibility ENUM(\'PUBLIC\',\'PRIVATE\') DEFAULT \'PUBLIC\'');
-  await addColumnIfNotExists('complaints', 'assigned_officer_id INT NULL');
+  console.log("✅ All tables are ready.");
+}
 
-  console.log(`✅ Database "${DB_NAME}" and tables are ready.`);
+// Export a query helper
+export async function query(sql, params) {
+  const connection = await pool.getConnection();
+  try {
+    const [results] = await connection.query(sql, params);
+    return results;
+  } finally {
+    connection.release();
+  }
 }

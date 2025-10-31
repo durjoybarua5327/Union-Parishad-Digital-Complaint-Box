@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { apiFetch } from "@/utils/api";
+// Directly fetch assigned complaints from backend API
 import Link from "next/link";
 
 export default function OfficerDashboard() {
@@ -16,14 +16,14 @@ export default function OfficerDashboard() {
   useEffect(() => {
     const fetchDashboard = async () => {
       try {
-        const [complaints] = await Promise.all([
-          apiFetch("/api/complaints/assigned"),
-        ]);
+        const res = await fetch("http://localhost:5000/api/complaints");
+        if (!res.ok) throw new Error("Failed to fetch complaints");
+        const data = await res.json();
 
         // Calculate stats from assigned complaints
-        const total = complaints.data.length;
-        const inReview = complaints.data.filter(c => c.status === "IN_REVIEW").length;
-        const resolved = complaints.data.filter(c => c.status === "RESOLVED").length;
+        const total = data.length;
+        const inReview = data.filter(c => c.status === "IN_REVIEW").length;
+        const resolved = data.filter(c => c.status === "RESOLVED").length;
 
         setStats({
           assignedComplaints: total,
@@ -32,7 +32,7 @@ export default function OfficerDashboard() {
         });
 
         // Sort by priority and get recent
-        const sorted = [...complaints.data].sort((a, b) => {
+        const sorted = [...data].sort((a, b) => {
           const priorityOrder = { HIGH: 0, MEDIUM: 1, LOW: 2 };
           return priorityOrder[a.priority] - priorityOrder[b.priority];
         });

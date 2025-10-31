@@ -3,7 +3,6 @@
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useUser } from "@clerk/nextjs";
-import { apiFetch } from "@/utils/api";
 import toast from "react-hot-toast";
 
 export function withProfileCheck(WrappedComponent) {
@@ -24,17 +23,18 @@ export function withProfileCheck(WrappedComponent) {
           }
 
           const response = await apiFetch("/api/profile");
+
           if (!response.success || !response.data?.isComplete) {
-            // Store the current path to redirect back after profile completion
             localStorage.setItem("profileRedirect", window.location.pathname);
             toast.error("Please complete your profile to continue");
             router.push("/profile");
             return;
           }
+
           setIsChecking(false);
         } catch (error) {
           console.error("Profile check error:", error);
-          toast.error("Please complete your profile to continue");
+          toast.error("Failed to verify profile");
           router.push("/profile");
         }
       };
@@ -54,5 +54,4 @@ export function withProfileCheck(WrappedComponent) {
   };
 }
 
-// keep a default export for modules that import the HOC as default
 export default withProfileCheck;

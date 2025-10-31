@@ -5,8 +5,8 @@
   "type": "module",
   "main": "src/index.js",
   "scripts": {
-    "start": "node src/index.js",
-    "dev": "nodemon src/index.js"
+  "start": "node server.js",
+  "dev": "nodemon server.js"
   },
   "dependencies": {
     "@clerk/clerk-sdk-node": "^4.13.23",
@@ -17,7 +17,6 @@
     "multer": "^1.4.5-lts.1",
     "mysql2": "^3.15.3"
   },
-
   "optionalDependencies": {
     "bcryptjs": "^2.4.3",
     "jsonwebtoken": "^9.0.0"

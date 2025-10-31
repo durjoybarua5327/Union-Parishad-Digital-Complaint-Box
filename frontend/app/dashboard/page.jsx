@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from "react";
 import { useUser } from "@clerk/nextjs";
-import { apiFetch } from "@/utils/api";
+// Directly fetch complaints from backend API
 import Link from "next/link";
 
 export default function Dashboard() {
@@ -19,8 +19,10 @@ export default function Dashboard() {
 
     const fetchComplaints = async () => {
       try {
-        const response = await apiFetch("/api/complaints/my");
-        setComplaints(response.data);
+        const res = await fetch("http://localhost:5000/api/complaints");
+        if (!res.ok) throw new Error("Failed to fetch complaints");
+        const data = await res.json();
+        setComplaints(data);
       } catch (err) {
         console.error(err);
       } finally {

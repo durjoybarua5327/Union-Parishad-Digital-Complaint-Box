@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { apiFetch } from "@/utils/api";
+// Directly fetch complaints from backend API
 import Link from "next/link";
 
 export default function AdminDashboard() {
@@ -17,14 +17,14 @@ export default function AdminDashboard() {
   useEffect(() => {
     const fetchDashboard = async () => {
       try {
-        const [complaints] = await Promise.all([
-          apiFetch("/api/complaints"),
-        ]);
+        const res = await fetch("http://localhost:5000/api/complaints");
+        if (!res.ok) throw new Error("Failed to fetch complaints");
+        const data = await res.json();
 
         // Calculate stats from complaints
-        const total = complaints.data.length;
-        const pending = complaints.data.filter(c => c.status === "PENDING").length;
-        const resolved = complaints.data.filter(c => c.status === "RESOLVED").length;
+        const total = data.length;
+        const pending = data.filter(c => c.status === "pending").length;
+        const resolved = data.filter(c => c.status === "resolved").length;
 
         setStats({
           totalComplaints: total,
@@ -33,7 +33,7 @@ export default function AdminDashboard() {
         });
 
         // Get 5 most recent complaints
-        setRecentComplaints(complaints.data.slice(0, 5));
+        setRecentComplaints(data.slice(0, 5));
       } catch (err) {
         console.error(err);
       } finally {

@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { apiFetch } from "@/utils/api";
+// ...existing code...
 import ComplaintCard from "@/components/ComplaintCard";
 import { useAuth, useUser, UserButton, SignIn } from "@clerk/nextjs";
 
@@ -22,8 +22,12 @@ export default function HomePage() {
     }
 
     setLoading(true);
-    apiFetch("/api/complaints")
-      .then((res) => setComplaints(res.data))
+    fetch("http://localhost:5000/api/complaints")
+      .then((res) => {
+        if (!res.ok) throw new Error("Failed to fetch complaints");
+        return res.json();
+      })
+      .then((data) => setComplaints(data))
       .catch((err) => setError(err.message))
       .finally(() => setLoading(false));
   }, [isLoaded, isSignedIn]);

@@ -4,7 +4,7 @@ import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { useUser } from "@clerk/nextjs";
 import toast from "react-hot-toast";
-import { apiFetch } from "@/utils/api";
+// Directly fetch profile from backend API
 
 export default function ProfilePage() {
   const { user, isLoaded } = useUser();
@@ -31,19 +31,19 @@ export default function ProfilePage() {
       }));
 
       // Check if profile is already completed
-      fetchProfile();
+  fetchProfile();
     }
   }, [isLoaded, user]);
 
   const fetchProfile = async () => {
     try {
-      const response = await apiFetch("/api/profile");
-      if (response.success) {
-        setForm(prev => ({
-          ...prev,
-          ...response.data,
-        }));
-      }
+  const res = await fetch("http://localhost:5000/api/profile?user_id=1");
+      if (!res.ok) throw new Error("Failed to fetch profile");
+      const data = await res.json();
+      setForm(prev => ({
+        ...prev,
+        ...data,
+      }));
     } catch (error) {
       console.error("Error fetching profile:", error);
     }
@@ -108,21 +108,22 @@ export default function ProfilePage() {
 
     setLoading(true);
     try {
-      const response = await apiFetch("/api/profile", {
+      const res = await fetch("http://localhost:5000/api/profile", {
         method: "POST",
-        body: JSON.stringify(form),
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ ...form, user_id: 1 }),
       });
-
-      if (response.success) {
-        toast.success("Profile updated successfully!");
-        // If there's a redirect path stored (e.g., from complaint creation attempt)
-        const redirectPath = localStorage.getItem("profileRedirect");
-        if (redirectPath) {
-          localStorage.removeItem("profileRedirect");
-          router.push(redirectPath);
-        } else {
-          router.push("/dashboard");
-        }
+      if (!res.ok) throw new Error("Failed to update profile");
+      toast.success("Profile updated successfully!");
+      // If there's a redirect path stored (e.g., from complaint creation attempt)
+      const redirectPath = localStorage.getItem("profileRedirect");
+      if (redirectPath) {
+        localStorage.removeItem("profileRedirect");
+        router.push(redirectPath);
+      } else {
+        router.push("/dashboard");
       }
     } catch (error) {
       toast.error(error.message || "Failed to update profile");

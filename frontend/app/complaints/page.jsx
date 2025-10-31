@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { getComplaints } from "@/utils/api";
+// Directly fetch complaints from backend API
 import ComplaintCard from "@/components/ComplaintCard";
 
 export default function ComplaintsPage() {
@@ -10,8 +10,12 @@ export default function ComplaintsPage() {
   const [error, setError] = useState(null);
 
   useEffect(() => {
-    getComplaints()
-      .then((res) => setComplaints(res.data))
+    fetch("http://localhost:5000/api/complaints")
+      .then((res) => {
+        if (!res.ok) throw new Error("Failed to fetch complaints");
+        return res.json();
+      })
+      .then((data) => setComplaints(data))
       .catch((err) => setError(err.message))
       .finally(() => setLoading(false));
   }, []);

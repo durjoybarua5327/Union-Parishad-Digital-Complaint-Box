@@ -2,7 +2,7 @@
 
 import { createContext, useContext, useEffect, useState } from "react";
 import { usePathname, useRouter } from "next/navigation";
-import { getToken, getUser } from "@/utils/api";
+import { getToken, getUser } from "@/utils/fetchClient";
 
 const AuthContext = createContext({});
 

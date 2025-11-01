@@ -1,4 +1,3 @@
-// frontend/app/layout.jsx
 "use client";
 
 import "./globals.css";
@@ -10,27 +9,42 @@ export default function RootLayout({ children }) {
   return (
     <html lang="en">
       <ClerkProvider
-    publishableKey={process.env.NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY}
+        publishableKey={process.env.NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY}
         appearance={{
           baseTheme: "dark",
           elements: {
-            formButtonPrimary: "bg-blue-500 hover:bg-blue-600",
-            footerActionLink: "text-blue-400 hover:text-blue-300",
+            formButtonPrimary:
+              "bg-blue-600 hover:bg-blue-700 text-white transition-all duration-300 shadow-md hover:shadow-lg",
+            footerActionLink: "text-blue-400 hover:text-blue-300 underline",
           },
         }}
       >
-        <body className="min-h-screen flex flex-col bg-linear-to-b from-blue-50 to-white dark:from-gray-950 dark:to-black text-gray-800 dark:text-gray-100 font-sans antialiased">
+        <body className="min-h-screen flex flex-col bg-linear-to-b from-blue-50 via-white to-blue-100 dark:from-gray-950 dark:via-gray-900 dark:to-black text-gray-800 dark:text-gray-100 font-sans antialiased transition-colors duration-500">
+          {/* ✨ Floating Decorative linear Background */}
+          <div className="fixed inset-0 -z-10 overflow-hidden">
+            <div className="absolute w-[500px] h-[500px] bg-blue-200 dark:bg-blue-800 rounded-full blur-3xl opacity-40 top-[-10%] left-[-10%] animate-pulse-slow"></div>
+            <div className="absolute w-[600px] h-[600px] bg-blue-400 dark:bg-blue-700 rounded-full blur-3xl opacity-30 bottom-[-10%] right-[-10%] animate-pulse-slow"></div>
+          </div>
+
           {/* 🌍 Global Navbar */}
-          <Navbar />
+          <header className="sticky top-0 z-50 w-full backdrop-blur-lg bg-white/70 dark:bg-gray-900/70 shadow-md transition-all duration-300">
+            <Navbar />
+          </header>
 
           {/* 🌟 Main Content */}
-          <main className="flex-1 flex flex-col items-center px-6 py-10 mt-16 w-full max-w-6xl mx-auto">
+          <main className="flex-1 flex flex-col items-center justify-center px-6 py-10 w-full max-w-7xl mx-auto animate-fadeIn">
             {children}
           </main>
 
           {/* 🌙 Footer */}
-          <footer className="w-full bg-gray-100 dark:bg-gray-900 py-4 mt-8 text-center text-sm text-gray-500 dark:text-gray-400">
-            © {new Date().getFullYear()} Union Parishad — All Rights Reserved
+          <footer className="relative w-full border-t border-gray-200 dark:border-gray-800 py-6 text-center text-sm text-gray-500 dark:text-gray-400 bg-white/40 dark:bg-gray-900/40 backdrop-blur-md">
+            <p className="tracking-wide">
+              © {new Date().getFullYear()}{" "}
+              <span className="font-semibold text-blue-600 dark:text-blue-400">
+                Union Parishad
+              </span>{" "}
+              — Empowering Communities Digitally
+            </p>
           </footer>
 
           {/* 🔔 Toast Notifications */}
@@ -39,8 +53,11 @@ export default function RootLayout({ children }) {
             toastOptions={{
               duration: 4000,
               style: {
-                background: "#333",
+                background: "#1f2937",
                 color: "#fff",
+                borderRadius: "0.75rem",
+                padding: "12px 16px",
+                fontSize: "0.95rem",
               },
               success: {
                 style: { background: "#059669" },

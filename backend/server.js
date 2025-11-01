@@ -246,6 +246,7 @@ app.get("/api/complaints", async (req, res) => {
     let complaints;
 
     if (user_email) {
+      // If user_email is provided, show all complaints for that user
       complaints = await query(
         `SELECT c.*, u.email, u.full_name, u.ward_no AS user_ward_no,
           (SELECT ci.image_url FROM complaint_images ci WHERE ci.complaint_id = c.id LIMIT 1) AS image_url
@@ -256,16 +257,17 @@ app.get("/api/complaints", async (req, res) => {
         [user_email]
       );
     } else {
+      // If no user_email, only show public complaints
       complaints = await query(
         `SELECT c.*, u.email, u.full_name, u.ward_no AS user_ward_no,
           (SELECT ci.image_url FROM complaint_images ci WHERE ci.complaint_id = c.id LIMIT 1) AS image_url
          FROM complaints c
          JOIN users u ON c.user_id = u.id
+         WHERE c.visibility = 'public'
          ORDER BY c.created_at DESC`
       );
     }
 
-    // Format image URLs
     complaints = complaints.map((c) => ({
       ...c,
       image_url: c.image_url ? `http://localhost:5000${c.image_url}` : null,
@@ -277,6 +279,7 @@ app.get("/api/complaints", async (req, res) => {
     res.status(500).json({ error: "Failed to fetch complaints" });
   }
 });
+
 
 app.get("/api/complaints/:id", async (req, res) => {
   const id = req.params.id;

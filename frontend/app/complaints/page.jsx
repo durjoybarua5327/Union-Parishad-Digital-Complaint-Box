@@ -4,7 +4,6 @@ import { useState, useEffect } from "react";
 import { useUser } from "@clerk/nextjs";
 import { useRouter } from "next/navigation";
 import ComplaintDetailsModal from "@/app/dashboard/ComplaintDetailsModal";
-
 import toast from "react-hot-toast";
 
 export default function ComplaintsPage() {
@@ -16,13 +15,14 @@ export default function ComplaintsPage() {
   const [selectedComplaint, setSelectedComplaint] = useState(null);
   const [error, setError] = useState(null);
 
-  // Fetch all complaints (from everyone)
+  // ✅ Fetch all public complaints from backend
   const fetchComplaints = async () => {
     try {
-      const res = await fetch("http://localhost:5000/api/complaints"); // endpoint returns all complaints
+      const res = await fetch("http://localhost:5000/api/complaints"); // backend now returns only public complaints by default
       if (!res.ok) throw new Error("Failed to fetch complaints");
+
       const data = await res.json();
-      setComplaints(data);
+      setComplaints(data); // already public
     } catch (err) {
       setError(err.message);
       toast.error(err.message || "Failed to fetch complaints");
@@ -35,6 +35,7 @@ export default function ComplaintsPage() {
     fetchComplaints();
   }, []);
 
+  // ✅ Handle submission: ensure profile complete before creating complaint
   const handleSubmitComplaint = async () => {
     if (!isLoaded || !user) {
       toast.error("Please log in first");
@@ -48,6 +49,7 @@ export default function ComplaintsPage() {
         )}`
       );
       if (!profileRes.ok) throw new Error("Failed to check profile");
+
       const profileData = await profileRes.json();
 
       if (!profileData.exists || !profileData.complete) {
@@ -74,7 +76,7 @@ export default function ComplaintsPage() {
   return (
     <div className="max-w-7xl mx-auto px-4 py-10">
       <h1 className="text-3xl font-bold text-center text-blue-700 dark:text-blue-400 mb-8">
-        All Complaints
+        Public Complaints
       </h1>
 
       <div className="text-center mb-8">
@@ -97,7 +99,7 @@ export default function ComplaintsPage() {
 
       {complaints.length === 0 ? (
         <div className="text-center py-16 text-gray-500 dark:text-gray-400">
-          <p className="mb-4 text-lg">No complaints available.</p>
+          <p className="mb-4 text-lg">No public complaints available.</p>
           <a
             href="/complaints/create"
             className="inline-block px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition"

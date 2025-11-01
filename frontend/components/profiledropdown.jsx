@@ -75,7 +75,7 @@ export default function ProfileDropdown() {
               className="px-3 py-2 rounded-lg hover:bg-blue-50 dark:hover:bg-gray-700 transition text-sm text-gray-700 dark:text-gray-200"
               onClick={() => setOpen(false)}
             >
-              All Complaints
+              linear
             </Link>
             <button
               onClick={() => signOut()}

@@ -71,12 +71,12 @@ export default function ComplaintDetailsModal({ complaint, onClose, userEmail })
       style={{ paddingTop: "5vh", paddingBottom: "5vh" }}
     >
       <div
-        className="relative bg-gradient-to-br from-blue-50 to-white dark:from-gray-900 dark:to-gray-800
+        className="relative bg-linear-to-br from-blue-50 to-white dark:from-gray-900 dark:to-gray-800
                    rounded-2xl shadow-2xl w-full max-w-[90%] sm:max-w-3xl p-0 border border-blue-100 dark:border-gray-700 animate-fadeIn overflow-hidden"
         onClick={(e) => e.stopPropagation()}
       >
         {/* Sticky Header */}
-        <div className="sticky top-0 bg-gradient-to-br from-blue-50 to-white dark:from-gray-900 dark:to-gray-800 z-20 border-b border-blue-100 dark:border-gray-700 p-6 flex flex-col sm:flex-row justify-between items-start sm:items-center">
+        <div className="sticky top-0 bg-linear-to-br from-blue-50 to-white dark:from-gray-900 dark:to-gray-800 z-20 border-b border-blue-100 dark:border-gray-700 p-6 flex flex-col sm:flex-row justify-between items-start sm:items-center">
           <div>
             <h2 className="text-2xl sm:text-3xl font-bold text-blue-700 dark:text-blue-400">
               {complaintDetails.title}

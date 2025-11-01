@@ -70,6 +70,13 @@ export default function SubmitComplaintPage() {
       if (!email) return showToast("error", "User email not found.", "emailNotFound");
 
       const res = await fetch(`http://localhost:5000/api/profile/check?email=${encodeURIComponent(email)}`);
+      if (!res.ok) {
+        throw new Error(`HTTP error! status: ${res.status}`);
+      }
+      const contentType = res.headers.get("content-type");
+      if (!contentType || !contentType.includes("application/json")) {
+        throw new TypeError("Server response was not JSON");
+      }
       const data = await res.json();
 
       if (!data.exists || !data.complete) {
@@ -87,13 +94,22 @@ export default function SubmitComplaintPage() {
 
   const fetchCategories = async () => {
     try {
-      const res = await fetch("http://localhost:5000/api/categories");
-      if (!res.ok) throw new Error("Failed to fetch categories");
+      const res = await fetch("http://localhost:5000/api/categories/search");
+      if (!res.ok) {
+        throw new Error(`HTTP error! status: ${res.status}`);
+      }
+      const contentType = res.headers.get("content-type");
+      if (!contentType || !contentType.includes("application/json")) {
+        throw new TypeError("Oops, we haven't got JSON!");
+      }
       const data = await res.json();
       setCategories(data);
       setFilteredCategories(data);
     } catch (err) {
-      console.error(err);
+      console.error("Error fetching categories:", err);
+      showToast("error", "Failed to load categories", "categoriesFetchError");
+      setCategories([]);
+      setFilteredCategories([]);
     }
   };
 

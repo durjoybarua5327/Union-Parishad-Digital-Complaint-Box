@@ -19,11 +19,11 @@ export default function ProfilePage() {
   });
   const [imageFile, setImageFile] = useState(null);
   const [imagePreview, setImagePreview] = useState(null);
-
   const [errors, setErrors] = useState({});
   const [loading, setLoading] = useState(false);
   const [fetching, setFetching] = useState(true);
 
+  // Fetch profile when user loads
   useEffect(() => {
     if (isLoaded && user?.emailAddresses?.[0]?.emailAddress) {
       fetchProfile();
@@ -34,8 +34,7 @@ export default function ProfilePage() {
     try {
       const email = user.emailAddresses[0].emailAddress.toLowerCase();
       const res = await fetch(
-        `http://localhost:5000/api/profile?email=${encodeURIComponent(email)}`,
-        { credentials: "include" }
+        `http://localhost:5000/api/profile?email=${encodeURIComponent(email)}`
       );
 
       if (!res.ok) {
@@ -47,6 +46,8 @@ export default function ProfilePage() {
       }
 
       const data = await res.json();
+
+      // Auto-fill form fields
       setForm({
         full_name: data.full_name || "",
         nid_number: data.nid_number || "",
@@ -56,7 +57,8 @@ export default function ProfilePage() {
         date_of_birth: data.date_of_birth || "",
       });
 
-      if (data.image_url) setImagePreview(`http://localhost:5000${data.image_url}`);
+      // Set existing profile image
+      if (data.image_url) setImagePreview(data.image_url);
     } catch (error) {
       console.error("❌ Error fetching profile:", error);
       showToast("error", "Failed to load profile.", "fetchProfileError");
@@ -129,7 +131,6 @@ export default function ProfilePage() {
       const res = await fetch("http://localhost:5000/api/profile", {
         method: "POST",
         body: formData,
-        credentials: "include",
       });
 
       if (!res.ok) throw new Error("Failed to update profile");
@@ -164,26 +165,24 @@ export default function ProfilePage() {
 
         <form onSubmit={handleSubmit} className="space-y-6">
           {/* Profile Image */}
-          {/* Profile Image */}
-<div className="flex flex-col items-center gap-2">
-  <label className="relative w-32 h-32 rounded-full overflow-hidden border-4 border-blue-500 shadow-lg cursor-pointer">
-    {imagePreview ? (
-      <img src={imagePreview} alt="Profile" className="w-full h-full object-cover" />
-    ) : (
-      <div className="w-full h-full bg-blue-100 dark:bg-gray-700 flex items-center justify-center text-gray-500 font-semibold">
-        Click to upload
-      </div>
-    )}
-    <input
-      type="file"
-      accept="image/*"
-      onChange={handleImageChange}
-      className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
-    />
-  </label>
-  {errors.image && <p className="text-red-500 text-sm mt-1">{errors.image}</p>}
-</div>
-
+          <div className="flex flex-col items-center gap-2">
+            <label className="relative w-32 h-32 rounded-full overflow-hidden border-4 border-blue-500 shadow-lg cursor-pointer">
+              {imagePreview ? (
+                <img src={imagePreview} alt="Profile" className="w-full h-full object-cover" />
+              ) : (
+                <div className="w-full h-full bg-blue-100 dark:bg-gray-700 flex items-center justify-center text-gray-500 font-semibold">
+                  Click to upload
+                </div>
+              )}
+              <input
+                type="file"
+                accept="image/*"
+                onChange={handleImageChange}
+                className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
+              />
+            </label>
+            {errors.image && <p className="text-red-500 text-sm mt-1">{errors.image}</p>}
+          </div>
 
           {/* Other fields */}
           <InputField label="Full Name" name="full_name" value={form.full_name} onChange={handleChange} error={errors.full_name} />

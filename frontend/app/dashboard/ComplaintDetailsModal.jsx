@@ -2,35 +2,77 @@
 
 import { useEffect, useState } from "react";
 import { createPortal } from "react-dom";
+import toast from "react-hot-toast";
 
-export default function ComplaintDetailsModal({ complaint, onClose }) {
+export default function ComplaintDetailsModal({ complaint, onClose, userEmail }) {
   const [complaintDetails, setComplaintDetails] = useState(null);
+  const [confirmOpen, setConfirmOpen] = useState(false);
 
+  // Disable background scroll when modal is open
   useEffect(() => {
-    const fetchDetails = async () => {
-      try {
-        const res = await fetch(`http://localhost:5000/api/complaints/${complaint.id}`);
-        if (!res.ok) throw new Error("Failed to fetch complaint details");
-        const data = await res.json();
-        setComplaintDetails(data);
-      } catch (err) {
-        console.error(err);
-      }
+    document.body.style.overflow = "hidden";
+    return () => {
+      document.body.style.overflow = "auto";
     };
+  }, []);
+
+  // Fetch complaint details function
+  const fetchDetails = async () => {
+    try {
+      const res = await fetch(`http://localhost:5000/api/complaints/${complaint.id}`);
+      if (!res.ok) throw new Error("Failed to fetch complaint details");
+      const data = await res.json();
+      setComplaintDetails(data);
+    } catch (err) {
+      console.error(err);
+      toast.error("Failed to load complaint details");
+    }
+  };
+
+  // Fetch once on mount
+  useEffect(() => {
     fetchDetails();
   }, [complaint.id]);
 
+  // Live polling every 5 seconds
+  useEffect(() => {
+    const interval = setInterval(fetchDetails, 5000); // adjust interval as needed
+    return () => clearInterval(interval);
+  }, [complaint.id]);
+
+  const handleDelete = async () => {
+    setConfirmOpen(false);
+    try {
+      const res = await fetch(`http://localhost:5000/api/complaints/${complaint.id}`, {
+        method: "DELETE",
+      });
+      if (!res.ok) throw new Error("Failed to delete complaint");
+      toast.success("Complaint deleted successfully");
+      onClose();
+    } catch (err) {
+      console.error(err);
+      toast.error("Failed to delete complaint");
+    }
+  };
+
+  const handleEdit = () => {
+    window.location.href = `/complaints/create?id=${complaint.id}`;
+  };
+
   if (!complaintDetails) return null;
+
+  const isCreator = complaintDetails.email === userEmail;
 
   return createPortal(
     <div
-      className="fixed inset-0 z-50 flex justify-center pt-10 px-4 sm:pt-20 bg-black/40 backdrop-blur-md transition-opacity"
+      className="fixed inset-0 z-50 flex justify-center items-start overflow-auto bg-black/30 backdrop-blur-sm"
       onClick={onClose}
+      style={{ paddingTop: "5vh", paddingBottom: "5vh" }}
     >
       <div
-        className="relative bg-gradient-to-br from-blue-50 to-white dark:from-gray-900 dark:to-gray-800 
-                   rounded-2xl shadow-2xl w-full max-w-2xl p-6 sm:p-8 border border-blue-100 
-                   dark:border-gray-700 animate-fadeIn"
+        className="relative bg-gradient-to-br from-blue-50 to-white dark:from-gray-900 dark:to-gray-800
+                   rounded-2xl shadow-2xl w-full max-w-[90%] sm:max-w-3xl p-6 sm:p-8 border border-blue-100 
+                   dark:border-gray-700 animate-fadeIn overflow-y-auto max-h-[90vh]"
         onClick={(e) => e.stopPropagation()}
       >
         {/* Close Button */}
@@ -49,6 +91,47 @@ export default function ComplaintDetailsModal({ complaint, onClose }) {
         {/* Divider */}
         <div className="h-1 w-16 bg-gradient-to-r from-blue-500 to-blue-400 rounded-full mb-4"></div>
 
+        {/* Edit/Delete buttons */}
+        {isCreator && (
+          <div className="flex gap-3 mb-4 relative">
+            <button
+              onClick={handleEdit}
+              className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition"
+            >
+              Edit
+            </button>
+            <button
+              onClick={() => setConfirmOpen(true)}
+              className="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition"
+            >
+              Delete
+            </button>
+
+            {/* Inline Confirm Modal */}
+            {confirmOpen && (
+              <div className="absolute top-12 right-0 min-w-[200px] max-w-[300px] bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-700 rounded-lg shadow-lg p-4 z-50">
+                <p className="text-gray-800 dark:text-gray-200 mb-3 text-sm">
+                  Are you sure you want to delete this complaint? This action cannot be undone.
+                </p>
+                <div className="flex justify-end gap-2">
+                  <button
+                    onClick={() => setConfirmOpen(false)}
+                    className="px-3 py-1 bg-gray-300 dark:bg-gray-700 rounded-lg hover:bg-gray-400 transition text-sm"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    onClick={handleDelete}
+                    className="px-3 py-1 bg-red-600 text-white rounded-lg hover:bg-red-700 transition text-sm"
+                  >
+                    Delete
+                  </button>
+                </div>
+              </div>
+            )}
+          </div>
+        )}
+
         {/* Description */}
         <p className="text-gray-700 dark:text-gray-300 mb-6 leading-relaxed break-words">
           {complaintDetails.description}
@@ -62,7 +145,7 @@ export default function ComplaintDetailsModal({ complaint, onClose }) {
                 key={idx}
                 src={`http://localhost:5000${img.image_url}`}
                 alt="Complaint image"
-                className="w-full h-32 sm:h-36 object-cover rounded-lg border border-blue-100 dark:border-gray-700 shadow-sm hover:scale-[1.02] transition-transform"
+                className="w-full h-auto object-cover rounded-lg border border-blue-100 dark:border-gray-700 shadow-sm hover:scale-[1.02] transition-transform"
               />
             ))}
           </div>
@@ -85,12 +168,12 @@ export default function ComplaintDetailsModal({ complaint, onClose }) {
         </div>
 
         {/* Comments */}
-        <div>
+        <div className="overflow-auto">
           <h3 className="font-semibold text-lg mb-3 text-gray-900 dark:text-gray-200">
             Comments
           </h3>
           {complaintDetails.comments?.length > 0 ? (
-            <ul className="space-y-3 max-h-48 overflow-y-auto pr-2">
+            <ul className="space-y-3 max-h-[300px] overflow-y-auto pr-2">
               {complaintDetails.comments.map((c) => (
                 <li
                   key={c.id}
@@ -106,9 +189,7 @@ export default function ComplaintDetailsModal({ complaint, onClose }) {
               ))}
             </ul>
           ) : (
-            <p className="text-gray-500 dark:text-gray-400 italic">
-              No comments yet.
-            </p>
+            <p className="text-gray-500 dark:text-gray-400 italic">No comments yet.</p>
           )}
         </div>
       </div>

@@ -2,12 +2,14 @@
 
 import { useEffect, useState } from "react";
 import { useUser } from "@clerk/nextjs";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { showToast } from "@/utils/toast";
 
 export default function SubmitComplaintPage() {
   const { user, isLoaded } = useUser();
   const router = useRouter();
+  const searchParams = useSearchParams();
+  const complaintId = searchParams.get("id"); // Edit mode if this exists
 
   const [loading, setLoading] = useState(false);
   const [profile, setProfile] = useState({ ward_no: "" });
@@ -17,6 +19,7 @@ export default function SubmitComplaintPage() {
   const [images, setImages] = useState([]);
   const [profileChecked, setProfileChecked] = useState(false);
 
+  // Fetch profile and categories
   useEffect(() => {
     if (isLoaded && user && !profileChecked) {
       fetchProfile();
@@ -24,6 +27,42 @@ export default function SubmitComplaintPage() {
       setProfileChecked(true);
     }
   }, [isLoaded, user, profileChecked]);
+
+  // Fetch complaint data for editing
+  useEffect(() => {
+    if (!complaintId) return;
+    const fetchComplaintForEdit = async () => {
+      try {
+        const res = await fetch(`http://localhost:5000/api/complaints/${complaintId}`);
+        if (!res.ok) throw new Error("Failed to fetch complaint");
+
+        const data = await res.json();
+
+        setProfile((prev) => ({ ...prev, ward_no: data.ward_no || prev.ward_no }));
+        setCategoryQuery(data.category || "");
+        setImages(
+          data.images?.map((img) => ({
+            url: `http://localhost:5000${img.image_url}`,
+            file: null, // preview only
+          })) || []
+        );
+
+        // Fill other form fields
+        ["title", "description"].forEach((field) => {
+          const el = document.querySelector(`[name="${field}"]`);
+          if (el) el.value = data[field] || "";
+        });
+
+        const visibilityEl = document.querySelector('[name="visibility"]');
+        if (visibilityEl) visibilityEl.value = data.visibility || "public";
+      } catch (err) {
+        console.error(err);
+        showToast("error", "Failed to load complaint data for editing", "editFetchError");
+      }
+    };
+
+    fetchComplaintForEdit();
+  }, [complaintId]);
 
   const fetchProfile = async () => {
     try {
@@ -77,26 +116,50 @@ export default function SubmitComplaintPage() {
     }
   };
 
-  const handleImageChange = (e) => setImages(Array.from(e.target.files));
+  const handleImageChange = (e) => {
+    const newImages = Array.from(e.target.files).map((file) => ({ file, url: URL.createObjectURL(file) }));
+    setImages([...images.filter((img) => img.file), ...newImages]);
+  };
 
+  // ✅ Updated submit function with full required field validation
   const handleSubmitComplaint = async (e) => {
     e.preventDefault();
     if (!user) return showToast("error", "Please log in first", "userNotLoggedIn");
+
+    const title = e.target.title.value.trim();
+    const ward_no = e.target.ward_no.value.trim();
+    const description = e.target.description.value.trim();
+    const category = categoryQuery.trim();
+    const visibility = e.target.visibility.value.trim();
+
+    // Validate all required fields
+    if (!title || !ward_no || !description || !category || !visibility) {
+      return showToast("error", "All fields are required!", "fieldsRequired");
+    }
+
+    // Validate image upload
+    if (images.length === 0) {
+      return showToast("error", "Please upload at least one image!", "imagesRequired");
+    }
 
     setLoading(true);
     try {
       const formData = new FormData();
       formData.append("user_email", user.emailAddresses[0].emailAddress.toLowerCase());
-      formData.append("title", e.target.title.value);
-      formData.append("description", e.target.description.value);
-      formData.append("category", categoryQuery);
-      formData.append("ward_no", e.target.ward_no.value);
-      formData.append("visibility", e.target.visibility.value);
+      formData.append("title", title);
+      formData.append("description", description);
+      formData.append("category", category);
+      formData.append("ward_no", ward_no);
+      formData.append("visibility", visibility);
 
-      images.forEach((img) => formData.append("images", img));
+      images.forEach((img) => img.file && formData.append("images", img.file));
 
-      const res = await fetch("http://localhost:5000/api/complaints", {
-        method: "POST",
+      const url = complaintId
+        ? `http://localhost:5000/api/complaints/${complaintId}`
+        : "http://localhost:5000/api/complaints";
+
+      const res = await fetch(url, {
+        method: complaintId ? "PUT" : "POST",
         body: formData,
       });
 
@@ -105,7 +168,7 @@ export default function SubmitComplaintPage() {
         throw new Error(errData.error || "Failed to submit complaint");
       }
 
-      showToast("success", "Complaint submitted successfully!", "complaintSuccess");
+      showToast("success", `Complaint ${complaintId ? "updated" : "submitted"} successfully!`, "complaintSuccess");
       router.push("/complaints");
     } catch (err) {
       console.error(err);
@@ -120,10 +183,10 @@ export default function SubmitComplaintPage() {
       <div className="w-full max-w-4xl bg-white dark:bg-gray-800 rounded-3xl shadow-2xl p-10 md:p-14 transition-all duration-300 hover:shadow-blue-300 dark:hover:shadow-blue-800">
         <div className="text-center mb-8">
           <h1 className="text-4xl font-extrabold bg-linear-to-r from-blue-600 to-blue-400 text-transparent bg-clip-text">
-            Submit Your Complaint
+            {complaintId ? "Edit Complaint" : "Submit Your Complaint"}
           </h1>
           <p className="text-gray-600 dark:text-gray-300 mt-2 text-base">
-            Please fill out all the required fields below to file your complaint.
+            Please fill out all the required fields below.
           </p>
         </div>
 
@@ -148,7 +211,7 @@ export default function SubmitComplaintPage() {
             required
           />
 
-          {/* Autocomplete Category */}
+          {/* Category */}
           <div className="relative">
             <label className="block text-sm font-semibold mb-2 text-gray-700 dark:text-gray-300">Category</label>
             <input
@@ -177,24 +240,24 @@ export default function SubmitComplaintPage() {
             )}
           </div>
 
-          {/* Image Upload */}
+          {/* Images */}
           <div>
-            <label className="block text-sm font-semibold mb-2 text-gray-700 dark:text-gray-300">
-              Upload Images (optional)
-            </label>
+            <label className="block text-sm font-semibold mb-2 text-gray-700 dark:text-gray-300">Upload Images</label>
             <input
               type="file"
               multiple
               accept="image/*"
               onChange={handleImageChange}
-              className="w-full p-3 border rounded-xl bg-blue-50 dark:bg-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-500 transition text-base"
+              className={`w-full p-3 border rounded-xl bg-blue-50 dark:bg-gray-900 focus:outline-none focus:ring-2 transition text-base ${
+                images.length === 0 ? "border-red-500" : "border-gray-300 dark:border-gray-700"
+              } focus:ring-blue-500`}
             />
             {images.length > 0 && (
               <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mt-3">
                 {images.map((img, idx) => (
                   <img
                     key={idx}
-                    src={URL.createObjectURL(img)}
+                    src={img.url}
                     alt={`preview-${idx}`}
                     className="w-full h-32 object-cover rounded-xl shadow-md border border-gray-200 dark:border-gray-700"
                   />
@@ -226,7 +289,7 @@ export default function SubmitComplaintPage() {
                 : "bg-linear-to-r from-blue-600 to-blue-500 hover:from-blue-700 hover:to-blue-600 shadow-lg hover:shadow-xl"
             }`}
           >
-            {loading ? "Submitting..." : "Submit Complaint"}
+            {loading ? "Submitting..." : complaintId ? "Update Complaint" : "Submit Complaint"}
           </button>
         </form>
       </div>

@@ -34,10 +34,72 @@ const storage = multer.diskStorage({
 const upload = multer({ storage });
 
 // ---------------- DATABASE INIT ----------------
+
+// ---------------- UPDATE COMPLAINT ----------------
+app.put("/api/complaints/:id", upload.array("images"), async (req, res) => {
+  const complaintId = req.params.id;
+  const { title, description, category, ward_no, visibility, status } = req.body;
+  try {
+    await query(
+      `UPDATE complaints SET title=?, description=?, category=?, ward_no=?, visibility=?, status=? WHERE id=?`,
+      [title, description, category, ward_no, visibility, status, complaintId]
+    );
+    if (req.files && req.files.length > 0) {
+      for (const file of req.files) {
+        const imageUrl = `/uploads/${file.filename}`;
+        await query("INSERT INTO complaint_images (complaint_id, image_url) VALUES (?, ?)", [
+          complaintId,
+          imageUrl,
+        ]);
+      }
+    }
+    const [complaint] = await query("SELECT * FROM complaints WHERE id = ?", [complaintId]);
+    const images = await query("SELECT image_url FROM complaint_images WHERE complaint_id = ?", [complaintId]);
+    res.status(200).json({ ...complaint, images });
+  } catch (err) {
+    console.error("❌ Error updating complaint:", err);
+    res.status(500).json({ error: "Failed to update complaint" });
+  }
+});
 initDatabase().catch((err) => {
   console.error("❌ Database initialization failed:", err);
   process.exit(1);
 });
+// ---------------- DELETE COMPLAINT ----------------
+app.delete("/api/complaints/:id", async (req, res) => {
+  const complaintId = req.params.id;
+
+  try {
+    // 1️⃣ Fetch associated images so we can delete files from disk
+    const images = await query(
+      "SELECT image_url FROM complaint_images WHERE complaint_id = ?",
+      [complaintId]
+    );
+
+    // 2️⃣ Delete images from filesystem
+    for (const img of images) {
+      const filePath = path.join(process.cwd(), "public", img.image_url);
+      if (fs.existsSync(filePath)) {
+        fs.unlinkSync(filePath);
+      }
+    }
+
+    // 3️⃣ Delete comments related to the complaint
+    await query("DELETE FROM comments WHERE complaint_id = ?", [complaintId]);
+
+    // 4️⃣ Delete image records
+    await query("DELETE FROM complaint_images WHERE complaint_id = ?", [complaintId]);
+
+    // 5️⃣ Delete the complaint itself
+    await query("DELETE FROM complaints WHERE id = ?", [complaintId]);
+
+    res.status(200).json({ success: true, message: "Complaint deleted successfully" });
+  } catch (err) {
+    console.error("❌ Error deleting complaint:", err);
+    res.status(500).json({ error: "Failed to delete complaint" });
+  }
+});
+
 
 // ---------------- HELPER FUNCTIONS ----------------
 async function getUserByEmail(email) {
@@ -280,6 +342,34 @@ app.post("/api/complaints", upload.array("images"), async (req, res) => {
   } catch (err) {
     console.error("❌ Error creating complaint:", err);
     res.status(500).json({ error: "Failed to create complaint" });
+  }
+});
+app.get("/api/complaints/:id/edit", async (req, res) => {
+  const id = req.params.id;
+  try {
+    const [complaint] = await query("SELECT * FROM complaints WHERE id = ?", [id]);
+    if (!complaint) return res.status(404).json({ error: "Complaint not found" });
+
+    const images = await query("SELECT image_url FROM complaint_images WHERE complaint_id = ?", [id]);
+
+    res.status(200).json({ ...complaint, images });
+  } catch (err) {
+    console.error("❌ Error fetching complaint for edit:", err);
+    res.status(500).json({ error: "Failed to fetch complaint for edit" });
+  }
+});
+app.get("/api/complaints/:id", async (req, res) => {
+  const id = req.params.id;
+  try {
+    const [complaint] = await query("SELECT * FROM complaints WHERE id = ?", [id]);
+    if (!complaint) return res.status(404).json({ error: "Complaint not found" });
+
+    const images = await query("SELECT image_url FROM complaint_images WHERE complaint_id = ?", [id]);
+
+    res.status(200).json({ ...complaint, images });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: "Failed to fetch complaint" });
   }
 });
 

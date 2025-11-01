@@ -180,7 +180,26 @@ app.get("/api/categories/search", async (req, res) => {
 // ---------------- COMPLAINT ROUTES ----------------
 app.get("/api/complaints", async (req, res) => {
   try {
-    const complaints = await query("SELECT * FROM complaints ORDER BY created_at DESC");
+    const user_email = req.query.user_email?.toLowerCase();
+    let complaints;
+    if (user_email) {
+      // Join complaints and users, filter by user email
+      complaints = await query(
+        `SELECT c.*, u.email, u.full_name, u.ward_no AS user_ward_no
+         FROM complaints c
+         JOIN users u ON c.user_id = u.id
+         WHERE u.email = ?
+         ORDER BY c.created_at DESC`,
+        [user_email]
+      );
+    } else {
+      complaints = await query(
+        `SELECT c.*, u.email, u.full_name, u.ward_no AS user_ward_no
+         FROM complaints c
+         JOIN users u ON c.user_id = u.id
+         ORDER BY c.created_at DESC`
+      );
+    }
     res.status(200).json(complaints);
   } catch (err) {
     console.error("❌ Error fetching complaints:", err);

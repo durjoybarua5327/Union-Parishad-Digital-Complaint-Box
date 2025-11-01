@@ -225,6 +225,20 @@ app.get("/api/profile/check", async (req, res) => {
 });
 
 // ---------------- CATEGORY ROUTES ----------------
+// Get all categories
+app.get("/api/categories", async (req, res) => {
+  try {
+    const results = await query(
+      "SELECT * FROM categories ORDER BY name ASC"
+    );
+    res.json(results);
+  } catch (err) {
+    console.error("❌ Error fetching categories:", err);
+    res.status(500).json({ error: "Failed to fetch categories" });
+  }
+});
+
+// Search categories
 app.get("/api/categories/search", async (req, res) => {
   const q = req.query.q?.toLowerCase() || "";
   try {

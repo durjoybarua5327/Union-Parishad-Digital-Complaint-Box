@@ -2,52 +2,48 @@
 
 import { createContext, useContext, useEffect, useState } from "react";
 import { usePathname, useRouter } from "next/navigation";
-import { getToken, getUser } from "@/utils/fetchClient";
+import { useUser } from "@clerk/nextjs";
 
 const AuthContext = createContext({});
 
 // Public paths that don't require auth
-const PUBLIC_PATHS = ["/login", "/register"];
+const PUBLIC_PATHS = ["/sign-in", "/sign-up"];
 
 // Role-based path access
 const ROLE_PATHS = {
-  CITIZEN: ["/complaints", "/complaints/create", "/complaints/[id]", "/notifications"],
-  OFFICER: ["/dashboard", "/complaints", "/complaints/[id]", "/notifications"],
-  ADMIN: ["/admin", "/dashboard", "/complaints", "/complaints/[id]", "/notifications", "/users"],
+  CITIZEN: ["/complaints", "/complaints/create", "/complaints/", "/notifications"],
+  OFFICER: ["/dashboard", "/complaints", "/notifications"],
+  ADMIN: ["/admin", "/dashboard", "/complaints", "/notifications", "/users"],
 };
 
 export function AuthProvider({ children }) {
-  const [user, setUser] = useState(null);
+  const { isLoaded, isSignedIn, user } = useUser();
   const [loading, setLoading] = useState(true);
+
   const router = useRouter();
   const pathname = usePathname();
 
-  // Load user on mount
+  // Stop until Clerk is loaded
   useEffect(() => {
-    const loadUser = () => {
-      const token = getToken();
-      const savedUser = getUser();
-      if (token && savedUser) {
-        setUser(savedUser);
-      }
-      setLoading(false);
-    };
-    loadUser();
-  }, []);
+    if (isLoaded) setLoading(false);
+  }, [isLoaded]);
 
-  // Auth check & route protection
+  // Route protection
   useEffect(() => {
     if (loading) return;
 
-    const isPublicPath = PUBLIC_PATHS.some(p => pathname === p);
-    if (!user && !isPublicPath) {
-      router.push("/login");
+    const isPublicPath = PUBLIC_PATHS.includes(pathname);
+
+    // Redirect if not signed in and trying to access private route
+    if (!isSignedIn && !isPublicPath) {
+      router.push("/sign-in");
       return;
     }
 
-    if (user && isPublicPath) {
-      // Redirect to role-specific dashboard
-      switch (user.role) {
+    // Redirect signed-in users away from public pages
+    if (isSignedIn && isPublicPath) {
+      const role = user?.publicMetadata?.role || "CITIZEN";
+      switch (role) {
         case "ADMIN":
           router.push("/admin");
           break;
@@ -60,27 +56,22 @@ export function AuthProvider({ children }) {
       return;
     }
 
-    // Role-based access check (if logged in)
-    if (user && !isPublicPath) {
-      const allowedPaths = ROLE_PATHS[user.role] || [];
-      const canAccess = allowedPaths.some(p => {
-        if (p.includes("[id]")) {
-          // Handle dynamic routes like /complaints/[id]
-          const base = p.split("/[")[0];
-          return pathname.startsWith(base);
-        }
-        return pathname === p;
-      });
+    // Role-based access control
+    if (isSignedIn && !isPublicPath) {
+      const role = user?.publicMetadata?.role || "CITIZEN";
+      const allowedPaths = ROLE_PATHS[role] || [];
+      const canAccess = allowedPaths.some((p) => pathname.startsWith(p));
 
       if (!canAccess) {
-        router.push(user.role === "ADMIN" ? "/admin" : user.role === "OFFICER" ? "/dashboard" : "/complaints");
+        const fallback = role === "ADMIN" ? "/admin" : role === "OFFICER" ? "/dashboard" : "/complaints";
+        router.push(fallback);
       }
     }
-  }, [user, loading, pathname]);
+  }, [isSignedIn, loading, pathname, user]);
 
   const value = {
     user,
-    setUser,
+    isSignedIn,
     loading,
   };
 
@@ -92,11 +83,7 @@ export function AuthProvider({ children }) {
     );
   }
 
-  return (
-    <AuthContext.Provider value={value}>
-      {children}
-    </AuthContext.Provider>
-  );
+  return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
 }
 
 export const useAuth = () => useContext(AuthContext);

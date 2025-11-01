@@ -17,6 +17,8 @@ export default function ProfilePage() {
     ward_no: "",
     date_of_birth: "",
   });
+  const [imageFile, setImageFile] = useState(null);
+  const [imagePreview, setImagePreview] = useState(null);
 
   const [errors, setErrors] = useState({});
   const [loading, setLoading] = useState(false);
@@ -38,7 +40,6 @@ export default function ProfilePage() {
 
       if (!res.ok) {
         if (res.status === 404) {
-          console.warn("Profile not found, creating a new one");
           setFetching(false);
           return;
         }
@@ -54,6 +55,8 @@ export default function ProfilePage() {
         ward_no: data.ward_no || "",
         date_of_birth: data.date_of_birth || "",
       });
+
+      if (data.image_url) setImagePreview(`http://localhost:5000${data.image_url}`);
     } catch (error) {
       console.error("❌ Error fetching profile:", error);
       showToast("error", "Failed to load profile.", "fetchProfileError");
@@ -81,6 +84,8 @@ export default function ProfilePage() {
       if (age < 18) newErrors.date_of_birth = "Must be at least 18 years old";
     }
 
+    if (!imageFile && !imagePreview) newErrors.image = "Profile image is required";
+
     setErrors(newErrors);
     return Object.keys(newErrors).length === 0;
   };
@@ -89,6 +94,15 @@ export default function ProfilePage() {
     const { name, value } = e.target;
     setForm((prev) => ({ ...prev, [name]: value }));
     if (errors[name]) setErrors((prev) => ({ ...prev, [name]: "" }));
+  };
+
+  const handleImageChange = (e) => {
+    const file = e.target.files[0];
+    if (file) {
+      setImageFile(file);
+      setImagePreview(URL.createObjectURL(file));
+      if (errors.image) setErrors((prev) => ({ ...prev, image: "" }));
+    }
   };
 
   const handleSubmit = async (e) => {
@@ -105,12 +119,17 @@ export default function ProfilePage() {
     }
 
     setLoading(true);
+
     try {
+      const formData = new FormData();
+      formData.append("email", email);
+      Object.entries(form).forEach(([key, value]) => formData.append(key, value));
+      if (imageFile) formData.append("image", imageFile);
+
       const res = await fetch("http://localhost:5000/api/profile", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        body: formData,
         credentials: "include",
-        body: JSON.stringify({ email, ...form }),
       });
 
       if (!res.ok) throw new Error("Failed to update profile");
@@ -134,55 +153,47 @@ export default function ProfilePage() {
   }
 
   return (
-    <div className="min-h-screen bg-linear-to-br from-blue-50 to-blue-100 dark:from-gray-900 dark:to-gray-800 flex items-center justify-center p-6">
-      <div className="w-full max-w-3xl bg-white dark:bg-gray-800 rounded-3xl shadow-2xl p-10">
-        <h1 className="text-4xl font-extrabold text-center text-blue-600 dark:text-blue-400 mb-4">
+    <div className="min-h-screen flex items-center justify-center bg-linear-to-br from-blue-50 to-blue-100 dark:from-gray-900 dark:to-gray-800 px-4 sm:px-6 lg:px-8 py-12">
+      <div className="w-full max-w-3xl bg-white dark:bg-gray-800 rounded-3xl shadow-2xl p-6 sm:p-10">
+        <h1 className="text-3xl sm:text-4xl font-extrabold text-center text-blue-600 dark:text-blue-400 mb-4">
           Complete Your Profile
         </h1>
-        <p className="text-center text-gray-600 dark:text-gray-300 mb-10">
+        <p className="text-center text-gray-600 dark:text-gray-300 mb-8 sm:mb-10">
           Provide your details to continue using Union Parishad services.
         </p>
 
         <form onSubmit={handleSubmit} className="space-y-6">
-          <InputField
-            label="Full Name"
-            name="full_name"
-            value={form.full_name}
-            onChange={handleChange}
-            error={errors.full_name}
-          />
+          {/* Profile Image */}
+          {/* Profile Image */}
+<div className="flex flex-col items-center gap-2">
+  <label className="relative w-32 h-32 rounded-full overflow-hidden border-4 border-blue-500 shadow-lg cursor-pointer">
+    {imagePreview ? (
+      <img src={imagePreview} alt="Profile" className="w-full h-full object-cover" />
+    ) : (
+      <div className="w-full h-full bg-blue-100 dark:bg-gray-700 flex items-center justify-center text-gray-500 font-semibold">
+        Click to upload
+      </div>
+    )}
+    <input
+      type="file"
+      accept="image/*"
+      onChange={handleImageChange}
+      className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
+    />
+  </label>
+  {errors.image && <p className="text-red-500 text-sm mt-1">{errors.image}</p>}
+</div>
 
-          <InputField
-            label="NID Number"
-            name="nid_number"
-            value={form.nid_number}
-            onChange={handleChange}
-            error={errors.nid_number}
-          />
 
-          <InputField
-            label="Phone Number"
-            name="phone_number"
-            type="tel"
-            value={form.phone_number}
-            onChange={handleChange}
-            placeholder="01XXXXXXXXX"
-            error={errors.phone_number}
-          />
+          {/* Other fields */}
+          <InputField label="Full Name" name="full_name" value={form.full_name} onChange={handleChange} error={errors.full_name} />
+          <InputField label="NID Number" name="nid_number" value={form.nid_number} onChange={handleChange} error={errors.nid_number} />
+          <InputField label="Phone Number" name="phone_number" type="tel" value={form.phone_number} onChange={handleChange} placeholder="01XXXXXXXXX" error={errors.phone_number} />
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-            <InputField
-              label="Address"
-              name="address"
-              value={form.address}
-              onChange={handleChange}
-              error={errors.address}
-            />
-
+            <InputField label="Address" name="address" value={form.address} onChange={handleChange} error={errors.address} />
             <div>
-              <label className="block text-sm font-medium mb-2 text-gray-700 dark:text-gray-300">
-                Ward Number
-              </label>
+              <label className="block text-sm font-medium mb-2 text-gray-700 dark:text-gray-300">Ward Number</label>
               <select
                 name="ward_no"
                 value={form.ward_no}
@@ -193,33 +204,22 @@ export default function ProfilePage() {
               >
                 <option value="">Select Ward</option>
                 {Array.from({ length: 9 }, (_, i) => (
-                  <option key={i + 1} value={i + 1}>
-                    Ward {i + 1}
-                  </option>
+                  <option key={i + 1} value={i + 1}>Ward {i + 1}</option>
                 ))}
               </select>
-              {errors.ward_no && (
-                <p className="text-sm text-red-500 mt-1">{errors.ward_no}</p>
-              )}
+              {errors.ward_no && <p className="text-sm text-red-500 mt-1">{errors.ward_no}</p>}
             </div>
           </div>
 
-          <InputField
-            label="Date of Birth"
-            name="date_of_birth"
-            type="date"
-            value={form.date_of_birth}
-            onChange={handleChange}
-            error={errors.date_of_birth}
-          />
+          <InputField label="Date of Birth" name="date_of_birth" type="date" value={form.date_of_birth} onChange={handleChange} error={errors.date_of_birth} />
 
           <button
             type="submit"
             disabled={loading}
-            className={`w-full py-3 font-semibold rounded-xl text-white transition ${
+            className={`w-full py-3 font-semibold rounded-xl text-white transition-all duration-300 ${
               loading
                 ? "bg-blue-400 cursor-not-allowed"
-                : "bg-linear-to-r from-blue-600 to-blue-500 hover:from-blue-700 hover:to-blue-600 shadow-lg"
+                : "bg-linear-to-r from-blue-600 to-blue-500 hover:from-blue-700 hover:to-blue-600 shadow-lg hover:shadow-xl"
             }`}
           >
             {loading ? "Updating..." : "Update Profile"}
@@ -230,10 +230,10 @@ export default function ProfilePage() {
   );
 }
 
-/* ✅ Reusable Input Field Component with focus effect */
+/* Reusable Input Component */
 function InputField({ label, name, value, onChange, error, type = "text", placeholder }) {
   return (
-    <div>
+    <div className="w-full">
       <label className="block text-sm font-medium mb-2 text-gray-700 dark:text-gray-300">{label}</label>
       <input
         type={type}
@@ -241,9 +241,9 @@ function InputField({ label, name, value, onChange, error, type = "text", placeh
         value={value}
         placeholder={placeholder}
         onChange={onChange}
-        className={`w-full p-3 border rounded-lg bg-blue-50 dark:bg-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-500 ${
-          error ? "border-red-500" : "border-gray-300"
-        }`}
+        className={`w-full p-3 border rounded-lg bg-blue-50 dark:bg-gray-900 text-gray-900 dark:text-gray-100 placeholder-gray-400 dark:placeholder-gray-500
+        focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all duration-200
+        ${error ? "border-red-500 focus:ring-red-400" : "border-gray-300"}`}
       />
       {error && <p className="text-sm text-red-500 mt-1">{error}</p>}
     </div>

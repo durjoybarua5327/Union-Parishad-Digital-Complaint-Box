@@ -1,7 +1,8 @@
 "use client";
 
-import { UserButton, useAuth } from "@clerk/nextjs";
 import Link from "next/link";
+import { useAuth } from "@clerk/nextjs";
+import ProfileModal from "./ProfileModal";
 
 export default function Navbar() {
   const { isSignedIn } = useAuth();
@@ -17,49 +18,20 @@ export default function Navbar() {
         </Link>
         <div className="flex items-center gap-6 text-sm sm:text-base">
           {!isSignedIn ? (
-            <>
-              <Link
-                href="/sign-in"
-                className="hover:text-blue-600 dark:hover:text-blue-400 transition"
-              >
-                Sign In
-              </Link>
-              <Link
-                href="/sign-up"
-                className="hover:text-blue-600 dark:hover:text-blue-400 transition"
-              >
-                Sign Up
-              </Link>
-            </>
-          ) : (
-            <>
-              <Link
-                href="/dashboard"
-                className="hover:text-blue-600 dark:hover:text-blue-400 transition"
-              >
-                Dashboard
-              </Link>
-              <Link
-                href="/complaints"
-                className="hover:text-blue-600 dark:hover:text-blue-400 transition"
-              >
-                All Complaints
-              </Link>
-              <Link
-                href="/complaints/create"
-                className="hover:text-blue-600 dark:hover:text-blue-400 transition"
-              >
-                Submit
-              </Link>
-              <Link
-                href="/notifications"
-                className="hover:text-blue-600 dark:hover:text-blue-400 transition"
-              >
-                Notifications
-              </Link>
-              <UserButton afterSignOutUrl="/" />
-            </>
-          )}
+  <>
+    <Link href="/sign-in" className="hover:text-blue-600 dark:hover:text-blue-400 transition">Sign In</Link>
+    <Link href="/sign-up" className="hover:text-blue-600 dark:hover:text-blue-400 transition">Sign Up</Link>
+  </>
+) : (
+  <>
+    <Link href="/complaints" className="hover:text-blue-600 dark:hover:text-blue-400 transition">All Complaints</Link>
+    <Link href="/dashboard" className="hover:text-blue-600 dark:hover:text-blue-400 transition">Dashboard</Link>
+    <Link href="/complaints/create" className="hover:text-blue-600 dark:hover:text-blue-400 transition">Submit</Link>
+    <Link href="/notifications" className="hover:text-blue-600 dark:hover:text-blue-400 transition">Notifications</Link>
+    <ProfileModal />
+  </>
+)}
+
         </div>
       </div>
     </nav>

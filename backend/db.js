@@ -23,21 +23,23 @@ export async function initDatabase() {
   console.log('✅ Database "union_parishad" ensured.');
 
   // ✅ Create tables using the pooled connection
-  await pool.query(`
-    CREATE TABLE IF NOT EXISTS users (
-      id VARCHAR(50) PRIMARY KEY,
-      full_name VARCHAR(100),
-      nid_number VARCHAR(20),
-      phone_number VARCHAR(20),
-      address VARCHAR(255),
-      ward_no VARCHAR(10),
-      date_of_birth DATE,
-      email VARCHAR(100) UNIQUE,
-      password VARCHAR(255),
-      role ENUM('citizen', 'officer', 'admin') DEFAULT 'citizen',
-      created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-    ) ENGINE=InnoDB;
-  `);
+await pool.query(`
+  CREATE TABLE IF NOT EXISTS users (
+    id VARCHAR(50) PRIMARY KEY,
+    full_name VARCHAR(100),
+    nid_number VARCHAR(20),
+    phone_number VARCHAR(20),
+    address VARCHAR(255),
+    ward_no VARCHAR(10),
+    date_of_birth DATE,
+    email VARCHAR(100) UNIQUE,
+    password VARCHAR(255),
+    role ENUM('citizen', 'officer', 'admin') DEFAULT 'citizen',
+    image_url VARCHAR(255), 
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+  ) ENGINE=InnoDB;
+`);
+
 
   await pool.query(`
     CREATE TABLE IF NOT EXISTS categories (

@@ -11,15 +11,18 @@ const app = express();
 // ---------------- MIDDLEWARE ----------------
 app.use(
   cors({
-    origin: "http://localhost:3000", // Allow Next.js frontend
+    origin: "http://localhost:3000",
     credentials: true,
   })
 );
 app.use(express.json());
 
+app.use("/uploads", express.static(path.join(process.cwd(), "public/uploads/users")));
+
 // ---------------- IMAGE UPLOAD SETUP ----------------
-const uploadDir = path.join(process.cwd(), "public/uploads");
+const uploadDir = path.join(process.cwd(), "public/uploads/users");
 if (!fs.existsSync(uploadDir)) fs.mkdirSync(uploadDir, { recursive: true });
+app.use("/uploads", express.static(path.join(process.cwd(), "public/uploads/users")));
 
 const storage = multer.diskStorage({
   destination: (req, file, cb) => cb(null, uploadDir),
@@ -55,7 +58,19 @@ async function ensureUserExists(email) {
   return user;
 }
 
+// ---------------- CATEGORY HELPERS ----------------
+async function ensureCategoryExists(categoryName) {
+  const lcName = categoryName.toLowerCase().trim();
+  const [existing] = await query("SELECT * FROM categories WHERE LOWER(name)=?", [lcName]);
+  if (!existing) {
+    const result = await query("INSERT INTO categories (name) VALUES (?)", [categoryName]);
+    return { id: result.insertId, name: categoryName };
+  }
+  return existing;
+}
+
 // ---------------- PROFILE ROUTES ----------------
+
 app.get("/api/profile", async (req, res) => {
   const email = req.query.email;
   if (!email) return res.status(400).json({ error: "Email required" });
@@ -63,57 +78,71 @@ app.get("/api/profile", async (req, res) => {
   try {
     const user = await getUserByEmail(email);
     if (!user) return res.status(404).json({ error: "User not found" });
-    res.status(200).json(user);
+
+    res.status(200).json({
+      ...user,
+      image_url: user.image_url ? `http://localhost:5000${user.image_url}` : null,
+    });
   } catch (err) {
     console.error("❌ Error fetching profile:", err);
     res.status(500).json({ error: "Failed to fetch profile" });
   }
 });
 
-app.post("/api/profile", async (req, res) => {
+// POST profile (create/update)
+app.post("/api/profile", upload.single("image"), async (req, res) => {
   const { email, full_name, nid_number, phone_number, address, ward_no, date_of_birth } = req.body;
   if (!email) return res.status(400).json({ error: "Email required" });
 
   const lcEmail = email.toLowerCase();
+  const imageUrl = req.file ? `/uploads/users/${req.file.filename}` : null;
 
   try {
     let user = await getUserByEmail(lcEmail);
 
     if (user) {
-      // Update
-      await query(
-        `UPDATE users 
-         SET full_name=?, nid_number=?, phone_number=?, address=?, ward_no=?, date_of_birth=? 
-         WHERE email=?`,
-        [full_name, nid_number, phone_number, address, ward_no, date_of_birth, lcEmail]
-      );
+      // Update existing user
+      const params = [full_name, nid_number, phone_number, address, ward_no, date_of_birth];
+      let queryStr = `UPDATE users SET full_name=?, nid_number=?, phone_number=?, address=?, ward_no=?, date_of_birth=?`;
+      if (imageUrl) {
+        queryStr += `, image_url=?`;
+        params.push(imageUrl);
+      }
+      queryStr += ` WHERE email=?`;
+      params.push(lcEmail);
+      await query(queryStr, params);
     } else {
-      // Create new
+      // Create new user
       await query(
-        `INSERT INTO users (id, email, full_name, nid_number, phone_number, address, ward_no, date_of_birth)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
-        [randomUUID(), lcEmail, full_name, nid_number, phone_number, address, ward_no, date_of_birth]
+        `INSERT INTO users (id, email, full_name, nid_number, phone_number, address, ward_no, date_of_birth, image_url)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+        [randomUUID(), lcEmail, full_name, nid_number, phone_number, address, ward_no, date_of_birth, imageUrl]
       );
     }
 
     user = await getUserByEmail(lcEmail);
-    res.status(200).json({ success: true, data: user });
+
+    res.status(200).json({
+      success: true,
+      data: {
+        ...user,
+        image_url: user.image_url ? `http://localhost:5000${user.image_url}` : null,
+      },
+    });
   } catch (err) {
     console.error("❌ Error updating profile:", err);
     res.status(500).json({ error: "Failed to update profile" });
   }
 });
 
+// Check if profile exists and complete
 app.get("/api/profile/check", async (req, res) => {
   const email = req.query.email?.toLowerCase();
   if (!email) return res.status(400).json({ error: "Email required" });
 
   try {
     const user = await getUserByEmail(email);
-
-    if (!user) {
-      return res.json({ exists: false, complete: false });
-    }
+    if (!user) return res.json({ exists: false, complete: false });
 
     const requiredFields = [
       user.full_name,
@@ -133,14 +162,18 @@ app.get("/api/profile/check", async (req, res) => {
   }
 });
 
-// ---------------- CATEGORY ROUTE ----------------
-app.get("/api/categories", async (req, res) => {
+// ---------------- CATEGORY ROUTES ----------------
+app.get("/api/categories/search", async (req, res) => {
+  const q = req.query.q?.toLowerCase() || "";
   try {
-    const categories = await query("SELECT * FROM categories ORDER BY name ASC");
-    res.status(200).json(categories);
+    const results = await query(
+      "SELECT * FROM categories WHERE LOWER(name) LIKE ? ORDER BY name ASC",
+      [`%${q}%`]
+    );
+    res.json(results);
   } catch (err) {
-    console.error("❌ Error fetching categories:", err);
-    res.status(500).json({ error: "Failed to fetch categories" });
+    console.error("❌ Error searching categories:", err);
+    res.status(500).json({ error: "Failed to search categories" });
   }
 });
 
@@ -188,12 +221,16 @@ app.post("/api/complaints", upload.array("images"), async (req, res) => {
     const user = await getUserByEmail(user_email);
     if (!user) return res.status(400).json({ error: "User not found in DB" });
 
+    // Ensure category exists in DB (create if not)
+    const categoryRecord = await ensureCategoryExists(category);
+    const categoryToUse = categoryRecord.name;
+
     // Insert complaint without images first
     const result = await query(
       `INSERT INTO complaints 
        (user_id, title, description, category, ward_no, visibility, status) 
        VALUES (?, ?, ?, ?, ?, ?, ?)`,
-      [user.id, title, description, category, ward_no, visibility || "public", status || "Pending"]
+      [user.id, title, description, categoryToUse, ward_no, visibility || "public", status || "Pending"]
     );
 
     const complaintId = result.insertId;

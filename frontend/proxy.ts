@@ -1,7 +1,6 @@
-// middleware.ts
+import { NextResponse } from "next/server";
 import { clerkMiddleware, createRouteMatcher } from "@clerk/nextjs/server";
 
-// Public routes that anyone can access
 const isPublicRoute = createRouteMatcher([
   "/",
   "/sign-in(.*)",
@@ -13,17 +12,16 @@ const isPublicRoute = createRouteMatcher([
 export default clerkMiddleware(async (auth, req) => {
   const { userId } = await auth();
 
-  // Allow public routes
   if (isPublicRoute(req)) return;
 
-  // Redirect unauthenticated users to sign-in
   if (!userId) {
-    const signInUrl = new URL("/sign-in", req.url);
-    signInUrl.searchParams.set("redirect_url", req.url);
-    return Response.redirect(signInUrl);
+    // Use Next.js NextRequest's nextUrl
+    const signInUrl = req.nextUrl.clone();
+    signInUrl.pathname = "/sign-in";
+  signInUrl.searchParams.set("redirectUrl", req.nextUrl.pathname + req.nextUrl.search);
+    return NextResponse.redirect(signInUrl);
   }
 
-  // Allow authenticated users to proceed
   return;
 });
 

@@ -43,21 +43,19 @@ export default function HomePage() {
 
   // If user is not signed in, show the embedded SignIn UI
   if (!isSignedIn) {
-    return (
-      <div className="min-h-screen flex items-center justify-center">
-        <div className="w-full max-w-md p-6">
-          <SignIn
-            appearance={{
-              elements: {
-                formButtonPrimary: "bg-blue-500 hover:bg-blue-600",
-                footerActionLink: "text-blue-400 hover:text-blue-300",
-              },
-            }}
-          />
-        </div>
-      </div>
-    );
-  }
+  return (
+    <div className="min-h-screen flex items-center justify-center">
+      <SignIn
+        appearance={{
+          elements: {
+            formButtonPrimary: "bg-blue-500 hover:bg-blue-600",
+            footerActionLink: "text-blue-400 hover:text-blue-300",
+          },
+        }}
+      />
+    </div>
+  );
+}
 
   return (
     <div className="w-full max-w-5xl relative">

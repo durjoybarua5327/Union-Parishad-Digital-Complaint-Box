@@ -9,7 +9,7 @@ export default function Dashboard() {
   const { isLoaded, isSignedIn, user } = useUser();
   const [complaints, setComplaints] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [selectedComplaint, setSelectedComplaint] = useState(null); // for modal
+  const [selectedComplaint, setSelectedComplaint] = useState(null);
 
   useEffect(() => {
     if (!isLoaded) return;
@@ -21,11 +21,14 @@ export default function Dashboard() {
     const fetchComplaints = async () => {
       try {
         const email =
-          user.emailAddresses?.[0]?.emailAddress || user.primaryEmailAddress?.email;
+          user.emailAddresses?.[0]?.emailAddress ||
+          user.primaryEmailAddress?.email;
         if (!email) throw new Error("User email not found");
 
         const res = await fetch(
-          `http://localhost:5000/api/complaints?user_email=${encodeURIComponent(email)}`
+          `http://localhost:5000/api/complaints?user_email=${encodeURIComponent(
+            email
+          )}`
         );
         if (!res.ok) throw new Error("Failed to fetch complaints");
         const data = await res.json();
@@ -50,12 +53,10 @@ export default function Dashboard() {
   }
 
   return (
-    <div className="max-w-7xl w-full mx-auto py-10 px-6">
-      <div className="flex justify-between items-center mb-10">
-        <h1 className="text-3xl font-bold text-gray-900 dark:text-white">
-          My Complaints {user?.firstName ? `(${user.firstName})` : ""}
-        </h1>
-      </div>
+    <div className="max-w-7xl mx-auto py-10 px-6">
+      <h1 className="text-3xl font-bold mb-8 text-gray-900 dark:text-white">
+        My Complaints {user?.firstName ? `(${user.firstName})` : ""}
+      </h1>
 
       {complaints.length === 0 ? (
         <div className="text-center py-16 text-gray-500 dark:text-gray-400">
@@ -68,52 +69,64 @@ export default function Dashboard() {
           </a>
         </div>
       ) : (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-8">
           {complaints.map((complaint) => (
             <div
               key={complaint.id}
-              className="bg-white dark:bg-gray-800 rounded-2xl shadow-lg p-6 flex flex-col justify-between hover:shadow-2xl transition"
+              className="bg-white dark:bg-gray-800 rounded-2xl shadow-md hover:shadow-2xl transition-all overflow-hidden group flex flex-col"
             >
-              <div>
-                <h3 className="text-xl font-semibold mb-2 text-gray-800 dark:text-gray-100">
-                  {complaint.title}
-                </h3>
-                <p className="text-gray-600 dark:text-gray-300 mb-4 break-words overflow-hidden">
-  {complaint.description.length > 120
-    ? `${complaint.description.substring(0, 120)}...`
-    : complaint.description}
-</p>
-
+              {/* Image */}
+              <div className="h-48 w-full overflow-hidden">
+                <img
+                  src={complaint.image_url || "/placeholder.jpg"}
+                  alt={complaint.title}
+                  className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
+                />
               </div>
 
-              <div className="flex justify-between items-center mt-4">
-                <span
-                  className={`px-3 py-1 rounded-full text-sm font-medium ${
-                    complaint.status === "Resolved"
-                      ? "bg-green-100 text-green-800"
-                      : complaint.status === "In Progress"
-                      ? "bg-blue-100 text-blue-800"
-                      : complaint.status === "Pending"
-                      ? "bg-yellow-100 text-yellow-800"
-                      : "bg-gray-100 text-gray-700"
-                  }`}
-                >
-                  {complaint.status}
-                </span>
+              {/* Content */}
+              <div className="p-5 flex flex-col flex-grow justify-between">
+                {/* Header row */}
+                <div className="flex flex-col space-y-2">
+                  <div className="flex justify-between items-center">
+                    <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100">
+                      {complaint.title}
+                    </h3>
+                    <span
+                      className={`px-3 py-1 rounded-full text-xs font-medium ${
+                        complaint.status === "Resolved"
+                          ? "bg-green-100 text-green-800"
+                          : complaint.status === "In Progress"
+                          ? "bg-blue-100 text-blue-800"
+                          : complaint.status === "Pending"
+                          ? "bg-yellow-100 text-yellow-800"
+                          : "bg-gray-100 text-gray-700"
+                      }`}
+                    >
+                      {complaint.status}
+                    </span>
+                  </div>
 
-                <button
-                  onClick={() => setSelectedComplaint(complaint)}
-                  className="text-blue-600 hover:underline text-sm font-medium"
-                >
-                  View Details
-                </button>
-              </div>
+                  {/* Inline info row */}
+                  <div className="flex justify-between items-center text-sm text-gray-500 dark:text-gray-400">
+                    <div className="flex items-center gap-2">
+                      <span>Ward {complaint.ward_no}</span>
+                      <span>•</span>
+                      <span>
+                        {complaint.created_at
+                          ? new Date(complaint.created_at).toLocaleDateString()
+                          : ""}
+                      </span>
+                    </div>
 
-              <div className="mt-3 text-sm text-gray-500 dark:text-gray-400">
-                <span>Ward {complaint.ward_no}</span> •{" "}
-                <span>
-                  Submitted {new Date(complaint.created_at).toLocaleDateString()}
-                </span>
+                    <button
+                      onClick={() => setSelectedComplaint(complaint)}
+                      className="text-blue-600 hover:text-blue-800 font-medium"
+                    >
+                      View Details →
+                    </button>
+                  </div>
+                </div>
               </div>
             </div>
           ))}

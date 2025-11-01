@@ -182,10 +182,11 @@ app.get("/api/complaints", async (req, res) => {
   try {
     const user_email = req.query.user_email?.toLowerCase();
     let complaints;
+
     if (user_email) {
-      // Join complaints and users, filter by user email
       complaints = await query(
-        `SELECT c.*, u.email, u.full_name, u.ward_no AS user_ward_no
+        `SELECT c.*, u.email, u.full_name, u.ward_no AS user_ward_no,
+          (SELECT ci.image_url FROM complaint_images ci WHERE ci.complaint_id = c.id LIMIT 1) AS image_url
          FROM complaints c
          JOIN users u ON c.user_id = u.id
          WHERE u.email = ?
@@ -194,12 +195,20 @@ app.get("/api/complaints", async (req, res) => {
       );
     } else {
       complaints = await query(
-        `SELECT c.*, u.email, u.full_name, u.ward_no AS user_ward_no
+        `SELECT c.*, u.email, u.full_name, u.ward_no AS user_ward_no,
+          (SELECT ci.image_url FROM complaint_images ci WHERE ci.complaint_id = c.id LIMIT 1) AS image_url
          FROM complaints c
          JOIN users u ON c.user_id = u.id
          ORDER BY c.created_at DESC`
       );
     }
+
+    // Format image URLs
+    complaints = complaints.map((c) => ({
+      ...c,
+      image_url: c.image_url ? `http://localhost:5000${c.image_url}` : null,
+    }));
+
     res.status(200).json(complaints);
   } catch (err) {
     console.error("❌ Error fetching complaints:", err);
@@ -240,11 +249,9 @@ app.post("/api/complaints", upload.array("images"), async (req, res) => {
     const user = await getUserByEmail(user_email);
     if (!user) return res.status(400).json({ error: "User not found in DB" });
 
-    // Ensure category exists in DB (create if not)
     const categoryRecord = await ensureCategoryExists(category);
     const categoryToUse = categoryRecord.name;
 
-    // Insert complaint without images first
     const result = await query(
       `INSERT INTO complaints 
        (user_id, title, description, category, ward_no, visibility, status) 
@@ -254,19 +261,20 @@ app.post("/api/complaints", upload.array("images"), async (req, res) => {
 
     const complaintId = result.insertId;
 
-    // Save multiple images
     if (req.files && req.files.length > 0) {
       for (const file of req.files) {
         const imageUrl = `/uploads/${file.filename}`;
-        await query(
-          "INSERT INTO complaint_images (complaint_id, image_url) VALUES (?, ?)",
-          [complaintId, imageUrl]
-        );
+        await query("INSERT INTO complaint_images (complaint_id, image_url) VALUES (?, ?)", [
+          complaintId,
+          imageUrl,
+        ]);
       }
     }
 
     const [complaint] = await query("SELECT * FROM complaints WHERE id = ?", [complaintId]);
-    const images = await query("SELECT image_url FROM complaint_images WHERE complaint_id = ?", [complaintId]);
+    const images = await query("SELECT image_url FROM complaint_images WHERE complaint_id = ?", [
+      complaintId,
+    ]);
 
     res.status(201).json({ ...complaint, images });
   } catch (err) {

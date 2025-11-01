@@ -10,41 +10,51 @@ export default function AdminDashboard() {
     pendingComplaints: 0,
     inReviewComplaints: 0,
     resolvedComplaints: 0,
+    totalOfficers: 0,
+    activeOfficers: 0,
   });
   const [recentComplaints, setRecentComplaints] = useState([]);
   const [loading, setLoading] = useState(true);
   const [selectedOfficer, setSelectedOfficer] = useState('');
   const [officers, setOfficers] = useState([]);
+  const [searchTerm, setSearchTerm] = useState('');
+  const [filterStatus, setFilterStatus] = useState('ALL');
 
   useEffect(() => {
     const fetchDashboard = async () => {
       try {
-        // Fetch complaints
-        const res = await fetch("http://localhost:5000/api/complaints");
+        // Fetch complaints with pagination and filtering
+        const statusFilter = filterStatus !== 'ALL' ? `&status=${filterStatus}` : '';
+        const searchFilter = searchTerm ? `&search=${searchTerm}` : '';
+        const res = await fetch(`http://localhost:5000/api/complaints?page=1&limit=10${statusFilter}${searchFilter}`);
         if (!res.ok) throw new Error("Failed to fetch complaints");
         const data = await res.json();
 
-        // Fetch officers
+        // Fetch officers with activity status
         const officersRes = await fetch("http://localhost:5000/api/users/officers");
         if (!officersRes.ok) throw new Error("Failed to fetch officers");
         const officersData = await officersRes.json();
         setOfficers(officersData);
 
-        // Calculate stats from complaints
-        const total = data.length;
-        const pending = data.filter(c => c.status === "PENDING").length;
-        const inReview = data.filter(c => c.status === "IN_REVIEW").length;
-        const resolved = data.filter(c => c.status === "RESOLVED").length;
+        // Calculate stats from complaints and officers
+        const total = data.totalComplaints || data.length;
+        const pending = data.complaints?.filter(c => c.status === "PENDING").length || 0;
+        const inReview = data.complaints?.filter(c => c.status === "IN_REVIEW").length || 0;
+        const resolved = data.complaints?.filter(c => c.status === "RESOLVED").length || 0;
+        const totalOfficers = officersData.length;
+        const activeOfficers = officersData.filter(o => o.status === "ACTIVE").length;
 
         setStats({
           totalComplaints: total,
           pendingComplaints: pending,
           inReviewComplaints: inReview,
           resolvedComplaints: resolved,
+          totalOfficers,
+          activeOfficers,
         });
 
-        // Get 5 most recent complaints
-        setRecentComplaints(data.slice(0, 5));
+        // Get filtered complaints
+        setRecentComplaints(data.complaints || data.slice(0, 10));
       } catch (err) {
         console.error(err);
       } finally {
@@ -74,18 +84,63 @@ export default function AdminDashboard() {
           <p className="text-3xl font-bold text-gray-900 dark:text-white mt-2">{stats.totalComplaints}</p>
         </div>
         <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm p-6">
-          <h3 className="text-sm font-medium text-gray-500 dark:text-gray-400">Pending</h3>
-          <p className="text-3xl font-bold text-yellow-600 dark:text-yellow-500 mt-2">{stats.pendingComplaints}</p>
+          <h3 className="text-sm font-medium text-gray-500 dark:text-gray-400">In Progress</h3>
+          <div className="flex justify-between items-center mt-2">
+            <div>
+              <p className="text-sm text-yellow-600 dark:text-yellow-500">Pending: {stats.pendingComplaints}</p>
+              <p className="text-sm text-blue-600 dark:text-blue-500">In Review: {stats.inReviewComplaints}</p>
+            </div>
+            <p className="text-3xl font-bold text-gray-900 dark:text-white">{stats.pendingComplaints + stats.inReviewComplaints}</p>
+          </div>
         </div>
         <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm p-6">
-          <h3 className="text-sm font-medium text-gray-500 dark:text-gray-400">Resolved</h3>
-          <p className="text-3xl font-bold text-green-600 dark:text-green-500 mt-2">{stats.resolvedComplaints}</p>
+          <h3 className="text-sm font-medium text-gray-500 dark:text-gray-400">Officers</h3>
+          <div className="flex justify-between items-center mt-2">
+            <div>
+              <p className="text-sm text-green-600 dark:text-green-500">Active: {stats.activeOfficers}</p>
+              <p className="text-sm text-gray-600 dark:text-gray-400">Total: {stats.totalOfficers}</p>
+            </div>
+            <p className="text-3xl font-bold text-green-600 dark:text-green-500">{stats.activeOfficers}</p>
+          </div>
         </div>
         <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm p-6">
-          <h3 className="text-sm font-medium text-gray-500 dark:text-gray-400">Resolution Rate</h3>
-          <p className="text-3xl font-bold text-blue-600 dark:text-blue-500 mt-2">
-            {stats.totalComplaints ? Math.round((stats.resolvedComplaints / stats.totalComplaints) * 100) : 0}%
-          </p>
+          <h3 className="text-sm font-medium text-gray-500 dark:text-gray-400">Performance</h3>
+          <div className="flex justify-between items-center mt-2">
+            <div>
+              <p className="text-sm text-green-600 dark:text-green-500">Resolved: {stats.resolvedComplaints}</p>
+              <p className="text-sm text-blue-600 dark:text-blue-500">
+                Rate: {stats.totalComplaints ? Math.round((stats.resolvedComplaints / stats.totalComplaints) * 100) : 0}%
+              </p>
+            </div>
+            <p className="text-3xl font-bold text-blue-600 dark:text-blue-500">{stats.resolvedComplaints}</p>
+          </div>
+        </div>
+      </div>
+
+      {/* Search and Filter Controls */}
+      <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm p-6 mb-8">
+        <div className="flex flex-col md:flex-row gap-4">
+          <div className="flex-1">
+            <input
+              type="text"
+              placeholder="Search complaints..."
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              className="w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+            />
+          </div>
+          <div className="flex gap-4">
+            <select
+              value={filterStatus}
+              onChange={(e) => setFilterStatus(e.target.value)}
+              className="px-4 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+            >
+              <option value="ALL">All Status</option>
+              <option value="PENDING">Pending</option>
+              <option value="IN_REVIEW">In Review</option>
+              <option value="RESOLVED">Resolved</option>
+            </select>
+          </div>
         </div>
       </div>
 

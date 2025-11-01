@@ -134,22 +134,31 @@ async function ensureCategoryExists(categoryName) {
 // ---------------- PROFILE ROUTES ----------------
 
 app.get("/api/profile", async (req, res) => {
-  const email = req.query.email;
+  const email = req.query.email?.toLowerCase();
   if (!email) return res.status(400).json({ error: "Email required" });
 
   try {
     const user = await getUserByEmail(email);
     if (!user) return res.status(404).json({ error: "User not found" });
 
+    // Ensure proper absolute URL for frontend
+    const profileImage = user.image_url ? `http://localhost:5000${user.image_url}` : null;
+
     res.status(200).json({
-      ...user,
-      image_url: user.image_url ? `http://localhost:5000${user.image_url}` : null,
+      full_name: user.full_name || "",
+      nid_number: user.nid_number || "",
+      phone_number: user.phone_number || "",
+      address: user.address || "",
+      ward_no: user.ward_no || "",
+      date_of_birth: user.date_of_birth || "",
+      image_url: profileImage,
     });
   } catch (err) {
     console.error("❌ Error fetching profile:", err);
     res.status(500).json({ error: "Failed to fetch profile" });
   }
 });
+
 
 // POST profile (create/update)
 app.post("/api/profile", upload.single("image"), async (req, res) => {
@@ -225,20 +234,6 @@ app.get("/api/profile/check", async (req, res) => {
 });
 
 // ---------------- CATEGORY ROUTES ----------------
-// Get all categories
-app.get("/api/categories", async (req, res) => {
-  try {
-    const results = await query(
-      "SELECT * FROM categories ORDER BY name ASC"
-    );
-    res.json(results);
-  } catch (err) {
-    console.error("❌ Error fetching categories:", err);
-    res.status(500).json({ error: "Failed to fetch categories" });
-  }
-});
-
-// Search categories
 app.get("/api/categories/search", async (req, res) => {
   const q = req.query.q?.toLowerCase() || "";
   try {
@@ -260,7 +255,6 @@ app.get("/api/complaints", async (req, res) => {
     let complaints;
 
     if (user_email) {
-      // If user_email is provided, show all complaints for that user
       complaints = await query(
         `SELECT c.*, u.email, u.full_name, u.ward_no AS user_ward_no,
           (SELECT ci.image_url FROM complaint_images ci WHERE ci.complaint_id = c.id LIMIT 1) AS image_url
@@ -271,17 +265,16 @@ app.get("/api/complaints", async (req, res) => {
         [user_email]
       );
     } else {
-      // If no user_email, only show public complaints
       complaints = await query(
         `SELECT c.*, u.email, u.full_name, u.ward_no AS user_ward_no,
           (SELECT ci.image_url FROM complaint_images ci WHERE ci.complaint_id = c.id LIMIT 1) AS image_url
          FROM complaints c
          JOIN users u ON c.user_id = u.id
-         WHERE c.visibility = 'public'
          ORDER BY c.created_at DESC`
       );
     }
 
+    // Format image URLs
     complaints = complaints.map((c) => ({
       ...c,
       image_url: c.image_url ? `http://localhost:5000${c.image_url}` : null,
@@ -293,7 +286,6 @@ app.get("/api/complaints", async (req, res) => {
     res.status(500).json({ error: "Failed to fetch complaints" });
   }
 });
-
 
 app.get("/api/complaints/:id", async (req, res) => {
   const id = req.params.id;

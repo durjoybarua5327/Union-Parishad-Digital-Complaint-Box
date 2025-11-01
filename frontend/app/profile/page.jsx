@@ -31,45 +31,37 @@ export default function ProfilePage() {
   }, [isLoaded, user]);
 
   const fetchProfile = async () => {
-    try {
-      const email = user.emailAddresses[0].emailAddress.toLowerCase();
-      const res = await fetch(
-        `http://localhost:5000/api/profile?email=${encodeURIComponent(email)}`
-      );
+  const email = user.emailAddresses[0].emailAddress.toLowerCase();
+  try {
+    const res = await fetch(`http://localhost:5000/api/profile?email=${encodeURIComponent(email)}`);
+    if (!res.ok) throw new Error("Failed to fetch profile");
 
-      if (!res.ok) {
-        if (res.status === 404) {
-          setFetching(false);
-          return;
-        }
-        throw new Error("Failed to fetch profile");
-      }
+    const data = await res.json();
 
-      const data = await res.json();
+    setForm({
+      full_name: data.full_name || "",
+      nid_number: data.nid_number || "",
+      phone_number: data.phone_number || "",
+      address: data.address || "",
+      ward_no: data.ward_no || "",
+      date_of_birth: data.date_of_birth || "", // YYYY-MM-DD works
+    });
 
-      // Auto-fill form fields
-      setForm({
-        full_name: data.full_name || "",
-        nid_number: data.nid_number || "",
-        phone_number: data.phone_number || "",
-        address: data.address || "",
-        ward_no: data.ward_no || "",
-        date_of_birth: data.date_of_birth || "",
-      });
-
-      // Set existing profile image
-      if (data.image_url) setImagePreview(data.image_url);
-    } catch (error) {
-      console.error("❌ Error fetching profile:", error);
-      showToast("error", "Failed to load profile.", "fetchProfileError");
-    } finally {
-      setFetching(false);
+    if (data.image_url) {
+      setImagePreview(data.image_url);
+      setImageFile(null); // clear any old selected file
     }
-  };
+  } catch (err) {
+    console.error("❌ Error fetching profile:", err);
+    showToast("error", "Failed to load profile.", "fetchProfileError");
+  } finally {
+    setFetching(false);
+  }
+};
+
 
   const validateForm = () => {
     const newErrors = {};
-
     if (!form.full_name.trim()) newErrors.full_name = "Full name is required";
     if (!form.nid_number.trim()) newErrors.nid_number = "NID number is required";
     else if (!/^\d{10}$|^\d{13}$|^\d{17}$/.test(form.nid_number))
@@ -85,7 +77,6 @@ export default function ProfilePage() {
       const age = Math.floor((Date.now() - dob) / (365.25 * 24 * 60 * 60 * 1000));
       if (age < 18) newErrors.date_of_birth = "Must be at least 18 years old";
     }
-
     if (!imageFile && !imagePreview) newErrors.image = "Profile image is required";
 
     setErrors(newErrors);
@@ -121,7 +112,6 @@ export default function ProfilePage() {
     }
 
     setLoading(true);
-
     try {
       const formData = new FormData();
       formData.append("email", email);
@@ -156,12 +146,15 @@ export default function ProfilePage() {
   return (
     <div className="min-h-screen flex items-center justify-center bg-linear-to-br from-blue-50 to-blue-100 dark:from-gray-900 dark:to-gray-800 px-4 sm:px-6 lg:px-8 py-12">
       <div className="w-full max-w-3xl bg-white dark:bg-gray-800 rounded-3xl shadow-2xl p-6 sm:p-10">
-        <h1 className="text-3xl sm:text-4xl font-extrabold text-center text-blue-600 dark:text-blue-400 mb-4">
-          Complete Your Profile
-        </h1>
-        <p className="text-center text-gray-600 dark:text-gray-300 mb-8 sm:mb-10">
-          Provide your details to continue using Union Parishad services.
-        </p>
+        {/* Sticky Title */}
+        <div className="sticky top-0 bg-white dark:bg-gray-800 z-10 pb-4 mb-4 border-b border-gray-200 dark:border-gray-700">
+          <h1 className="text-3xl sm:text-4xl font-extrabold text-center text-blue-600 dark:text-blue-400">
+            Complete Your Profile
+          </h1>
+          <p className="text-center text-gray-600 dark:text-gray-300 mt-2">
+            Provide your details to continue using Union Parishad services.
+          </p>
+        </div>
 
         <form onSubmit={handleSubmit} className="space-y-6">
           {/* Profile Image */}

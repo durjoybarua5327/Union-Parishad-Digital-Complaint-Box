@@ -13,10 +13,26 @@ export default function OfficerDashboard() {
   const [assignedComplaints, setAssignedComplaints] = useState([]);
   const [loading, setLoading] = useState(true);
 
+  const updateComplaintStatus = async (complaintId, newStatus) => {
+    try {
+      const res = await fetch(`http://localhost:5000/api/complaints/${complaintId}/status`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ status: newStatus })
+      });
+      if (!res.ok) throw new Error('Failed to update status');
+      fetchDashboard(); // Refresh data after update
+    } catch (err) {
+      console.error('Error updating complaint status:', err);
+    }
+  };
+
   useEffect(() => {
     const fetchDashboard = async () => {
       try {
-        const res = await fetch("http://localhost:5000/api/complaints");
+        // Get officer ID from local storage or context
+        const officerId = localStorage.getItem('officerId');
+        const res = await fetch(`http://localhost:5000/api/complaints/assigned/${officerId}`);
         if (!res.ok) throw new Error("Failed to fetch complaints");
         const data = await res.json();
 

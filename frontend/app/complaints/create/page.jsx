@@ -19,7 +19,6 @@ export default function SubmitComplaintPage() {
   const [images, setImages] = useState([]);
   const [profileChecked, setProfileChecked] = useState(false);
 
-  // Fetch profile and categories
   useEffect(() => {
     if (isLoaded && user && !profileChecked) {
       fetchProfile();
@@ -28,26 +27,20 @@ export default function SubmitComplaintPage() {
     }
   }, [isLoaded, user, profileChecked]);
 
-  // Fetch complaint data for editing
   useEffect(() => {
     if (!complaintId) return;
     const fetchComplaintForEdit = async () => {
       try {
         const res = await fetch(`http://localhost:5000/api/complaints/${complaintId}`);
         if (!res.ok) throw new Error("Failed to fetch complaint");
-
         const data = await res.json();
 
         setProfile((prev) => ({ ...prev, ward_no: data.ward_no || prev.ward_no }));
         setCategoryQuery(data.category || "");
         setImages(
-          data.images?.map((img) => ({
-            url: `http://localhost:5000${img.image_url}`,
-            file: null, // preview only
-          })) || []
+          data.images?.map((img) => ({ url: `http://localhost:5000${img.image_url}`, file: null })) || []
         );
 
-        // Fill other form fields
         ["title", "description"].forEach((field) => {
           const el = document.querySelector(`[name="${field}"]`);
           if (el) el.value = data[field] || "";
@@ -60,7 +53,6 @@ export default function SubmitComplaintPage() {
         showToast("error", "Failed to load complaint data for editing", "editFetchError");
       }
     };
-
     fetchComplaintForEdit();
   }, [complaintId]);
 
@@ -70,13 +62,6 @@ export default function SubmitComplaintPage() {
       if (!email) return showToast("error", "User email not found.", "emailNotFound");
 
       const res = await fetch(`http://localhost:5000/api/profile/check?email=${encodeURIComponent(email)}`);
-      if (!res.ok) {
-        throw new Error(`HTTP error! status: ${res.status}`);
-      }
-      const contentType = res.headers.get("content-type");
-      if (!contentType || !contentType.includes("application/json")) {
-        throw new TypeError("Server response was not JSON");
-      }
       const data = await res.json();
 
       if (!data.exists || !data.complete) {
@@ -84,7 +69,6 @@ export default function SubmitComplaintPage() {
         router.push("/profile");
         return;
       }
-
       setProfile(data.data);
     } catch (err) {
       console.error(err);
@@ -95,18 +79,11 @@ export default function SubmitComplaintPage() {
   const fetchCategories = async () => {
     try {
       const res = await fetch("http://localhost:5000/api/categories/search");
-      if (!res.ok) {
-        throw new Error(`HTTP error! status: ${res.status}`);
-      }
-      const contentType = res.headers.get("content-type");
-      if (!contentType || !contentType.includes("application/json")) {
-        throw new TypeError("Oops, we haven't got JSON!");
-      }
       const data = await res.json();
       setCategories(data);
       setFilteredCategories(data);
     } catch (err) {
-      console.error("Error fetching categories:", err);
+      console.error(err);
       showToast("error", "Failed to load categories", "categoriesFetchError");
       setCategories([]);
       setFilteredCategories([]);
@@ -116,20 +93,11 @@ export default function SubmitComplaintPage() {
   const handleCategoryChange = async (e) => {
     const value = e.target.value;
     setCategoryQuery(value);
+    if (!value) return setFilteredCategories(categories);
 
-    if (!value) {
-      setFilteredCategories(categories);
-      return;
-    }
-
-    try {
-      const res = await fetch(`http://localhost:5000/api/categories/search?q=${encodeURIComponent(value)}`);
-      const data = await res.json();
-      setFilteredCategories(data);
-    } catch (err) {
-      console.error(err);
-      setFilteredCategories([]);
-    }
+    const res = await fetch(`http://localhost:5000/api/categories/search?q=${encodeURIComponent(value)}`);
+    const data = await res.json();
+    setFilteredCategories(data);
   };
 
   const handleImageChange = (e) => {
@@ -137,7 +105,8 @@ export default function SubmitComplaintPage() {
     setImages([...images.filter((img) => img.file), ...newImages]);
   };
 
-  // ✅ Updated submit function with full required field validation
+  const removeImage = (idx) => setImages(images.filter((_, i) => i !== idx));
+
   const handleSubmitComplaint = async (e) => {
     e.preventDefault();
     if (!user) return showToast("error", "Please log in first", "userNotLoggedIn");
@@ -148,15 +117,10 @@ export default function SubmitComplaintPage() {
     const category = categoryQuery.trim();
     const visibility = e.target.visibility.value.trim();
 
-    // Validate all required fields
     if (!title || !ward_no || !description || !category || !visibility) {
       return showToast("error", "All fields are required!", "fieldsRequired");
     }
-
-    // Validate image upload
-    if (images.length === 0) {
-      return showToast("error", "Please upload at least one image!", "imagesRequired");
-    }
+    if (images.length === 0) return showToast("error", "Please upload at least one image!", "imagesRequired");
 
     setLoading(true);
     try {
@@ -167,18 +131,13 @@ export default function SubmitComplaintPage() {
       formData.append("category", category);
       formData.append("ward_no", ward_no);
       formData.append("visibility", visibility);
-
       images.forEach((img) => img.file && formData.append("images", img.file));
 
       const url = complaintId
         ? `http://localhost:5000/api/complaints/${complaintId}`
         : "http://localhost:5000/api/complaints";
 
-      const res = await fetch(url, {
-        method: complaintId ? "PUT" : "POST",
-        body: formData,
-      });
-
+      const res = await fetch(url, { method: complaintId ? "PUT" : "POST", body: formData });
       if (!res.ok) {
         const errData = await res.json();
         throw new Error(errData.error || "Failed to submit complaint");
@@ -195,20 +154,20 @@ export default function SubmitComplaintPage() {
   };
 
   return (
-    <div className="min-h-screen bg-linear-to-b from-blue-100 via-white to-blue-50 dark:from-gray-900 dark:via-gray-800 dark:to-gray-900 flex items-center justify-center px-4 py-10">
+    <div className="min-h-screen bg-gradient-to-b from-blue-100 via-white to-blue-50 dark:from-gray-900 dark:via-gray-800 dark:to-gray-900 flex items-center justify-center px-4 py-10">
       <div className="w-full max-w-4xl bg-white dark:bg-gray-800 rounded-3xl shadow-2xl p-10 md:p-14 transition-all duration-300 hover:shadow-blue-300 dark:hover:shadow-blue-800">
-        <div className="text-center mb-8">
-          <h1 className="text-4xl font-extrabold bg-linear-to-r from-blue-600 to-blue-400 text-transparent bg-clip-text">
+        <div className="sticky top-0 bg-white dark:bg-gray-800 py-4 mb-6 rounded-xl shadow-sm z-10">
+          <h1 className="text-4xl font-extrabold bg-gradient-to-r from-blue-600 to-blue-400 text-transparent bg-clip-text text-center">
             {complaintId ? "Edit Complaint" : "Submit Your Complaint"}
           </h1>
-          <p className="text-gray-600 dark:text-gray-300 mt-2 text-base">
-            Please fill out all the required fields below.
+          <p className="text-gray-600 dark:text-gray-300 mt-2 text-center text-base">
+            Fill out all required fields below
           </p>
         </div>
 
         <form onSubmit={handleSubmitComplaint} className="space-y-6">
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-            <InputField name="title" label="Title" placeholder="Enter your complaint title" required />
+            <InputField name="title" label="Title" placeholder="Complaint title" required />
             <InputField
               name="ward_no"
               label="Ward Number"
@@ -271,12 +230,22 @@ export default function SubmitComplaintPage() {
             {images.length > 0 && (
               <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mt-3">
                 {images.map((img, idx) => (
-                  <img
-                    key={idx}
-                    src={img.url}
-                    alt={`preview-${idx}`}
-                    className="w-full h-32 object-cover rounded-xl shadow-md border border-gray-200 dark:border-gray-700"
-                  />
+                  <div key={idx} className="relative">
+                    <img
+                      src={img.url}
+                      alt={`preview-${idx}`}
+                      className="w-full h-32 object-cover rounded-xl shadow-md border border-gray-200 dark:border-gray-700"
+                    />
+                    {img.file && (
+                      <button
+                        type="button"
+                        onClick={() => removeImage(idx)}
+                        className="absolute top-1 right-1 bg-red-600 text-white rounded-full w-6 h-6 flex items-center justify-center hover:bg-red-700 transition"
+                      >
+                        ×
+                      </button>
+                    )}
+                  </div>
                 ))}
               </div>
             )}
@@ -302,7 +271,7 @@ export default function SubmitComplaintPage() {
             className={`w-full py-4 font-bold rounded-xl text-white text-lg transition-all duration-200 ${
               loading
                 ? "bg-blue-400 cursor-not-allowed"
-                : "bg-linear-to-r from-blue-600 to-blue-500 hover:from-blue-700 hover:to-blue-600 shadow-lg hover:shadow-xl"
+                : "bg-gradient-to-r from-blue-600 to-blue-500 hover:from-blue-700 hover:to-blue-600 shadow-lg hover:shadow-xl"
             }`}
           >
             {loading ? "Submitting..." : complaintId ? "Update Complaint" : "Submit Complaint"}

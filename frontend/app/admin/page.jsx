@@ -8,27 +8,38 @@ export default function AdminDashboard() {
   const [stats, setStats] = useState({
     totalComplaints: 0,
     pendingComplaints: 0,
+    inReviewComplaints: 0,
     resolvedComplaints: 0,
-    totalUsers: 0,
   });
   const [recentComplaints, setRecentComplaints] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [selectedOfficer, setSelectedOfficer] = useState('');
+  const [officers, setOfficers] = useState([]);
 
   useEffect(() => {
     const fetchDashboard = async () => {
       try {
+        // Fetch complaints
         const res = await fetch("http://localhost:5000/api/complaints");
         if (!res.ok) throw new Error("Failed to fetch complaints");
         const data = await res.json();
 
+        // Fetch officers
+        const officersRes = await fetch("http://localhost:5000/api/users/officers");
+        if (!officersRes.ok) throw new Error("Failed to fetch officers");
+        const officersData = await officersRes.json();
+        setOfficers(officersData);
+
         // Calculate stats from complaints
         const total = data.length;
-        const pending = data.filter(c => c.status === "pending").length;
-        const resolved = data.filter(c => c.status === "resolved").length;
+        const pending = data.filter(c => c.status === "PENDING").length;
+        const inReview = data.filter(c => c.status === "IN_REVIEW").length;
+        const resolved = data.filter(c => c.status === "RESOLVED").length;
 
         setStats({
           totalComplaints: total,
           pendingComplaints: pending,
+          inReviewComplaints: inReview,
           resolvedComplaints: resolved,
         });
 
@@ -99,6 +110,7 @@ export default function AdminDashboard() {
                 <th className="pb-3 font-medium">Status</th>
                 <th className="pb-3 font-medium">Ward</th>
                 <th className="pb-3 font-medium">Submitted</th>
+                <th className="pb-3 font-medium">Assign Officer</th>
                 <th className="pb-3 font-medium">Action</th>
               </tr>
             </thead>
@@ -120,8 +132,35 @@ export default function AdminDashboard() {
                       {complaint.status}
                     </span>
                   </td>
-                  <td className="py-4">{complaint.ward}</td>
+                  <td className="py-4">{complaint.ward_no}</td>
                   <td className="py-4">{new Date(complaint.created_at).toLocaleDateString()}</td>
+                  <td className="py-4">
+                    <select
+                      className="border rounded px-2 py-1 text-sm"
+                      value={complaint.assigned_officer || ''}
+                      onChange={async (e) => {
+                        try {
+                          const res = await fetch(`http://localhost:5000/api/complaints/${complaint.id}/assign`, {
+                            method: 'PUT',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({ officerId: e.target.value })
+                          });
+                          if (!res.ok) throw new Error('Failed to assign officer');
+                          // Refresh data after assignment
+                          fetchDashboard();
+                        } catch (err) {
+                          console.error('Error assigning officer:', err);
+                        }
+                      }}
+                    >
+                      <option value="">Select Officer</option>
+                      {officers.map(officer => (
+                        <option key={officer.id} value={officer.id}>
+                          {officer.full_name}
+                        </option>
+                      ))}
+                    </select>
+                  </td>
                   <td className="py-4">
                     <Link
                       href={`/complaints/${complaint.id}`}

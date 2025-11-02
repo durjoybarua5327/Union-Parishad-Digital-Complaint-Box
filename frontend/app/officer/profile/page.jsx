@@ -1,118 +1,171 @@
 "use client";
 
-import { useEffect, useState } from "react";
-import { useAuth, useUser } from "@clerk/nextjs";
-import { toast } from "../../../utils/toast";
+import { useState, useEffect } from "react";
+import { useUser } from "@clerk/nextjs";
+import { User, Mail, Phone, MapPin, Calendar, Shield } from "lucide-react";
 
-export default function OfficerProfile() {
-  const { isLoaded, isSignedIn, getToken } = useAuth();
+export default function OfficerProfilePage() {
   const { user } = useUser();
   const [profile, setProfile] = useState(null);
   const [loading, setLoading] = useState(true);
-  const [stats, setStats] = useState({
-    total_assigned: 0,
-    resolved: 0,
-    pending: 0,
-    in_progress: 0,
-  });
 
   useEffect(() => {
-    async function fetchProfile() {
-      if (!isLoaded || !isSignedIn || !user) return;
-      
-      try {
-        setLoading(true);
-        const token = await getToken();
-        const res = await fetch('http://localhost:5000/api/officer/profile', {
-          headers: {
-            'Authorization': `Bearer ${token}`
-          }
-        });
-        
-        if (!res.ok) throw new Error('Failed to fetch profile');
-        
-        const data = await res.json();
-        setProfile(data.profile);
-        setStats(data.stats);
-      } catch (error) {
-        console.error(error);
-        toast.error('Failed to load profile. Please try again.');
-      } finally {
-        setLoading(false);
-      }
+    if (user?.emailAddresses[0]?.emailAddress) {
+      fetchProfile();
     }
-    
-    fetchProfile();
-  }, [userProfile?.id, authToken]);
+  }, [user]);
+
+  const fetchProfile = async () => {
+    try {
+      const res = await fetch(
+        `http://localhost:5000/api/profile?email=${user.emailAddresses[0].emailAddress}`
+      );
+      const data = await res.json();
+      setProfile(data);
+    } catch (error) {
+      console.error("Error fetching profile:", error);
+    } finally {
+      setLoading(false);
+    }
+  };
 
   if (loading) {
     return (
-      <div className="flex justify-center items-center min-h-[calc(100vh-64px)]">
-        <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-blue-500"></div>
+      <div className="min-h-screen flex items-center justify-center">
+        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-green-600"></div>
       </div>
     );
   }
 
-  if (!profile) return null;
-
   return (
-    <div className="max-w-4xl mx-auto p-6">
-      <div className="bg-white rounded-lg shadow-sm p-6 mb-6">
-        <div className="flex items-start gap-6">
-          <img
-            src={profile.image_url || "/default-avatar.png"}
-            alt="Profile"
-            className="w-24 h-24 rounded-full object-cover"
-          />
-          <div>
-            <h1 className="text-2xl font-bold mb-2">{profile.name}</h1>
-            <div className="space-y-1 text-gray-600">
-              <p>Email: {profile.email}</p>
-              <p>Ward: {profile.ward_no}</p>
-              <p>Department: {profile.department}</p>
-              <p>Phone: {profile.phone}</p>
+    <div className="min-h-screen bg-gray-50 dark:bg-gray-900">
+      <div className="max-w-4xl mx-auto px-4 py-8">
+        <div className="mb-8">
+          <h1 className="text-3xl font-bold text-gray-900 dark:text-white mb-2">
+            Officer Profile
+          </h1>
+          <p className="text-gray-600 dark:text-gray-400">
+            Your profile information
+          </p>
+        </div>
+
+        <div className="bg-white dark:bg-gray-800 rounded-lg shadow-md overflow-hidden">
+          {/* Profile Header */}
+          <div className="bg-gradient-to-r from-green-500 to-green-600 p-8">
+            <div className="flex items-center gap-6">
+              <div className="w-24 h-24 rounded-full bg-white dark:bg-gray-700 flex items-center justify-center overflow-hidden">
+                {profile?.image_url ? (
+                  <img
+                    src={profile.image_url}
+                    alt="Profile"
+                    className="w-full h-full object-cover"
+                  />
+                ) : (
+                  <User className="w-12 h-12 text-gray-400" />
+                )}
+              </div>
+              <div>
+                <h2 className="text-2xl font-bold text-white mb-1">
+                  {profile?.full_name || "Officer"}
+                </h2>
+                <div className="flex items-center gap-2 text-white/90">
+                  <Shield className="w-4 h-4" />
+                  <span className="capitalize">{profile?.role || "Officer"}</span>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* Profile Details */}
+          <div className="p-8">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              {/* Email */}
+              <div className="flex items-start gap-4">
+                <div className="p-3 bg-gray-100 dark:bg-gray-700 rounded-lg">
+                  <Mail className="w-5 h-5 text-gray-600 dark:text-gray-400" />
+                </div>
+                <div>
+                  <p className="text-sm text-gray-600 dark:text-gray-400 mb-1">Email</p>
+                  <p className="font-medium text-gray-900 dark:text-white">
+                    {user?.emailAddresses[0]?.emailAddress || "N/A"}
+                  </p>
+                </div>
+              </div>
+
+              {/* Phone */}
+              <div className="flex items-start gap-4">
+                <div className="p-3 bg-gray-100 dark:bg-gray-700 rounded-lg">
+                  <Phone className="w-5 h-5 text-gray-600 dark:text-gray-400" />
+                </div>
+                <div>
+                  <p className="text-sm text-gray-600 dark:text-gray-400 mb-1">Phone Number</p>
+                  <p className="font-medium text-gray-900 dark:text-white">
+                    {profile?.phone_number || "Not provided"}
+                  </p>
+                </div>
+              </div>
+
+              {/* NID */}
+              <div className="flex items-start gap-4">
+                <div className="p-3 bg-gray-100 dark:bg-gray-700 rounded-lg">
+                  <User className="w-5 h-5 text-gray-600 dark:text-gray-400" />
+                </div>
+                <div>
+                  <p className="text-sm text-gray-600 dark:text-gray-400 mb-1">NID Number</p>
+                  <p className="font-medium text-gray-900 dark:text-white">
+                    {profile?.nid_number || "Not provided"}
+                  </p>
+                </div>
+              </div>
+
+              {/* Date of Birth */}
+              <div className="flex items-start gap-4">
+                <div className="p-3 bg-gray-100 dark:bg-gray-700 rounded-lg">
+                  <Calendar className="w-5 h-5 text-gray-600 dark:text-gray-400" />
+                </div>
+                <div>
+                  <p className="text-sm text-gray-600 dark:text-gray-400 mb-1">Date of Birth</p>
+                  <p className="font-medium text-gray-900 dark:text-white">
+                    {profile?.date_of_birth ? new Date(profile.date_of_birth).toLocaleDateString() : "Not provided"}
+                  </p>
+                </div>
+              </div>
+
+              {/* Ward No */}
+              <div className="flex items-start gap-4">
+                <div className="p-3 bg-gray-100 dark:bg-gray-700 rounded-lg">
+                  <MapPin className="w-5 h-5 text-gray-600 dark:text-gray-400" />
+                </div>
+                <div>
+                  <p className="text-sm text-gray-600 dark:text-gray-400 mb-1">Ward Number</p>
+                  <p className="font-medium text-gray-900 dark:text-white">
+                    {profile?.ward_no ? `Ward ${profile.ward_no}` : "Not provided"}
+                  </p>
+                </div>
+              </div>
+
+              {/* Address */}
+              <div className="flex items-start gap-4 md:col-span-2">
+                <div className="p-3 bg-gray-100 dark:bg-gray-700 rounded-lg">
+                  <MapPin className="w-5 h-5 text-gray-600 dark:text-gray-400" />
+                </div>
+                <div>
+                  <p className="text-sm text-gray-600 dark:text-gray-400 mb-1">Address</p>
+                  <p className="font-medium text-gray-900 dark:text-white">
+                    {profile?.address || "Not provided"}
+                  </p>
+                </div>
+              </div>
+            </div>
+
+            {/* Note */}
+            <div className="mt-8 p-4 bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg">
+              <p className="text-sm text-blue-800 dark:text-blue-300">
+                <strong>Note:</strong> To update your profile information, please contact the administrator.
+              </p>
             </div>
           </div>
         </div>
-      </div>
-
-      {/* Performance Stats */}
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
-        <div className="bg-white p-4 rounded-lg shadow-sm">
-          <div className="text-gray-600 text-sm font-medium">Total Assigned</div>
-          <div className="mt-2 text-2xl font-bold">{stats.total_assigned}</div>
-        </div>
-        <div className="bg-white p-4 rounded-lg shadow-sm">
-          <div className="text-yellow-600 text-sm font-medium">Pending</div>
-          <div className="mt-2 text-2xl font-bold">{stats.pending}</div>
-        </div>
-        <div className="bg-white p-4 rounded-lg shadow-sm">
-          <div className="text-blue-600 text-sm font-medium">In Progress</div>
-          <div className="mt-2 text-2xl font-bold">{stats.in_progress}</div>
-        </div>
-        <div className="bg-white p-4 rounded-lg shadow-sm">
-          <div className="text-green-600 text-sm font-medium">Resolved</div>
-          <div className="mt-2 text-2xl font-bold">{stats.resolved}</div>
-        </div>
-      </div>
-
-      {/* Recent Activity */}
-      <div className="bg-white rounded-lg shadow-sm p-6">
-        <h2 className="text-lg font-semibold mb-4">Recent Activity</h2>
-        {profile.recent_activity && profile.recent_activity.length > 0 ? (
-          <div className="space-y-4">
-            {profile.recent_activity.map((activity) => (
-              <div key={activity.id} className="p-4 bg-gray-50 rounded-lg">
-                <p className="text-gray-800">{activity.description}</p>
-                <p className="text-sm text-gray-500 mt-1">
-                  {new Date(activity.timestamp).toLocaleString()}
-                </p>
-              </div>
-            ))}
-          </div>
-        ) : (
-          <p className="text-gray-500 text-center py-4">No recent activity</p>
-        )}
       </div>
     </div>
   );

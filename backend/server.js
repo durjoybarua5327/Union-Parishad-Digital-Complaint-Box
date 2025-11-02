@@ -75,10 +75,95 @@ app.put("/api/complaints/:id", upload.array("images"), async (req, res) => {
   }
 });
 
+// ---------------- OFFICER: UPDATE COMPLAINT STATUS ----------------
+app.put("/api/officer/complaints/:id/status", async (req, res) => {
+  const complaintId = req.params.id;
+  const { status, officer_email } = req.body;
+
+  try {
+    if (!officer_email) return res.status(400).json({ error: "Officer email required" });
+    
+    const officer = await getUserByEmail(officer_email);
+    if (!officer || officer.role !== 'officer') {
+      return res.status(403).json({ error: "Unauthorized: Officer access required" });
+    }
+
+    const validStatuses = ['Pending', 'In Progress', 'Resolved', 'Closed'];
+    if (!validStatuses.includes(status)) {
+      return res.status(400).json({ error: "Invalid status" });
+    }
+
+    await query("UPDATE complaints SET status = ? WHERE id = ?", [status, complaintId]);
+
+    // Log status change
+    await query(
+      "INSERT INTO status_changes (complaint_id, officer_id, old_status, new_status) VALUES (?, ?, (SELECT status FROM complaints WHERE id = ?), ?)",
+      [complaintId, officer.id, complaintId, status]
+    );
+
+    const [complaint] = await query("SELECT * FROM complaints WHERE id = ?", [complaintId]);
+    res.status(200).json({ success: true, complaint });
+  } catch (err) {
+    console.error("❌ Error updating complaint status:", err);
+    res.status(500).json({ error: "Failed to update complaint status" });
+  }
+});
+
+// ---------------- OFFICER: GET DASHBOARD STATS ----------------
+app.get("/api/officer/dashboard", async (req, res) => {
+  const officer_email = req.query.officer_email?.toLowerCase();
+  
+  try {
+    if (!officer_email) return res.status(400).json({ error: "Officer email required" });
+    
+    const officer = await getUserByEmail(officer_email);
+    if (!officer || officer.role !== 'officer') {
+      return res.status(403).json({ error: "Unauthorized: Officer access required" });
+    }
+
+    // Total complaints
+    const [totalResult] = await query("SELECT COUNT(*) as total FROM complaints");
+    const total = totalResult.total;
+
+    // Status breakdown
+    const statusBreakdown = await query(
+      `SELECT status, COUNT(*) as count FROM complaints GROUP BY status`
+    );
+
+    // Officer's activity (status changes made by this officer)
+    const [activityResult] = await query(
+      `SELECT COUNT(*) as changes_made FROM status_changes WHERE officer_id = ?`,
+      [officer.id]
+    );
+
+    // Recent status changes by this officer
+    const recentChanges = await query(
+      `SELECT sc.*, c.title, c.id as complaint_id, sc.created_at as change_date
+       FROM status_changes sc
+       JOIN complaints c ON sc.complaint_id = c.id
+       WHERE sc.officer_id = ?
+       ORDER BY sc.created_at DESC
+       LIMIT 10`,
+      [officer.id]
+    );
+
+    res.status(200).json({
+      total,
+      statusBreakdown,
+      changesMade: activityResult.changes_made,
+      recentChanges
+    });
+  } catch (err) {
+    console.error("❌ Error fetching officer dashboard:", err);
+    res.status(500).json({ error: "Failed to fetch dashboard data" });
+  }
+});
+
 initDatabase().catch((err) => {
   console.error("❌ Database initialization failed:", err);
   process.exit(1);
 });
+
 // ---------------- DELETE COMPLAINT ----------------
 app.delete("/api/complaints/:id", async (req, res) => {
   const complaintId = req.params.id;
@@ -165,6 +250,7 @@ app.get("/api/profile", async (req, res) => {
       address: user.address || "",
       ward_no: user.ward_no || "",
       date_of_birth: user.date_of_birth || "",
+      role: user.role || "citizen",
       image_url: profileImage,
     });
   } catch (err) {
@@ -367,6 +453,7 @@ app.post("/api/complaints", upload.array("images"), async (req, res) => {
     res.status(500).json({ error: "Failed to create complaint" });
   }
 });
+
 app.get("/api/complaints/:id/edit", async (req, res) => {
   const id = req.params.id;
   try {
@@ -379,20 +466,6 @@ app.get("/api/complaints/:id/edit", async (req, res) => {
   } catch (err) {
     console.error("❌ Error fetching complaint for edit:", err);
     res.status(500).json({ error: "Failed to fetch complaint for edit" });
-  }
-});
-app.get("/api/complaints/:id", async (req, res) => {
-  const id = req.params.id;
-  try {
-    const [complaint] = await query("SELECT * FROM complaints WHERE id = ?", [id]);
-    if (!complaint) return res.status(404).json({ error: "Complaint not found" });
-
-    const images = await query("SELECT image_url FROM complaint_images WHERE complaint_id = ?", [id]);
-
-    res.status(200).json({ ...complaint, images });
-  } catch (err) {
-    console.error(err);
-    res.status(500).json({ error: "Failed to fetch complaint" });
   }
 });
 

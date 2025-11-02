@@ -2,6 +2,43 @@ const express = require('express');
 const router = express.Router();
 const { query } = require('../db');
 
+// Update user role
+router.put('/users/:userId/role', async (req, res) => {
+  const { userId } = req.params;
+  const { role } = req.body;
+
+  try {
+    // First check if the user exists and get their current role and clerk_user_id
+    const [existingUser] = await query(
+      'SELECT role, clerk_user_id, email FROM users WHERE id = ?',
+      [userId]
+    );
+
+    if (!existingUser) {
+      return res.status(404).json({ error: 'User not found' });
+    }
+
+    // Update the user's role in the same row
+    await query(
+      'UPDATE users SET role = ? WHERE id = ?',
+      [role, userId]
+    );
+
+    res.json({ 
+      message: 'User role updated successfully',
+      user: {
+        id: userId,
+        role,
+        email: existingUser.email,
+        clerk_user_id: existingUser.clerk_user_id
+      }
+    });
+  } catch (err) {
+    console.error('Error updating user role:', err);
+    res.status(500).json({ error: 'Failed to update user role' });
+  }
+});
+
 // Get all officers
 router.get('/users/officers', async (req, res) => {
   try {

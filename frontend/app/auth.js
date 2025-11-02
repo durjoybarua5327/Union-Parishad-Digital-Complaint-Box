@@ -4,7 +4,7 @@ import { useAuth as useClerkAuth } from "@clerk/nextjs";
 const AuthContext = createContext();
 
 export function AuthProvider({ children }) {
-  const { isLoaded, userId, sessionId, isSignedIn } = useClerkAuth();
+  const { isLoaded, userId, sessionId, isSignedIn, getToken } = useClerkAuth();
 
   return (
     <AuthContext.Provider
@@ -12,7 +12,8 @@ export function AuthProvider({ children }) {
         isLoaded,
         isSignedIn,
         userId,
-        sessionId
+        sessionId,
+        getToken
       }}
     >
       {children}

@@ -4,7 +4,7 @@ const pool = mysql.createPool({
   host: process.env.DB_HOST || "localhost",
   user: process.env.DB_USER || "root",
   password: process.env.DB_PASSWORD || "",
-  database: "union_parishad", // ✅ always use this database
+  database: "union_parishad",
   waitForConnections: true,
   connectionLimit: 10,
   queueLimit: 0,
@@ -100,6 +100,20 @@ await pool.query(`
       complaint_id INT NOT NULL,
       officer_id VARCHAR(50) NOT NULL,
       assigned_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+      FOREIGN KEY (complaint_id) REFERENCES complaints(id) ON DELETE CASCADE,
+      FOREIGN KEY (officer_id) REFERENCES users(id) ON DELETE CASCADE
+    ) ENGINE=InnoDB;
+  `);
+
+  // ✅ New table to track status changes by officers
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS status_changes (
+      id INT AUTO_INCREMENT PRIMARY KEY,
+      complaint_id INT NOT NULL,
+      officer_id VARCHAR(50) NOT NULL,
+      old_status VARCHAR(50),
+      new_status VARCHAR(50) NOT NULL,
+      created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
       FOREIGN KEY (complaint_id) REFERENCES complaints(id) ON DELETE CASCADE,
       FOREIGN KEY (officer_id) REFERENCES users(id) ON DELETE CASCADE
     ) ENGINE=InnoDB;

@@ -39,11 +39,23 @@ const upload = multer({ storage });
 app.put("/api/complaints/:id", upload.array("images"), async (req, res) => {
   const complaintId = req.params.id;
   const { title, description, category, ward_no, visibility, status } = req.body;
+
   try {
+    // Get current status
+    const [existing] = await query("SELECT status FROM complaints WHERE id = ?", [complaintId]);
+    if (!existing) return res.status(404).json({ error: "Complaint not found" });
+
+    // Use existing status if none provided
+    const finalStatus = status || existing.status;
+
     await query(
-      `UPDATE complaints SET title=?, description=?, category=?, ward_no=?, visibility=?, status=? WHERE id=?`,
-      [title, description, category, ward_no, visibility, status, complaintId]
+      `UPDATE complaints 
+       SET title=?, description=?, category=?, ward_no=?, visibility=?, status=? 
+       WHERE id=?`,
+      [title, description, category, ward_no, visibility, finalStatus, complaintId]
     );
+
+    // Save images if uploaded
     if (req.files && req.files.length > 0) {
       for (const file of req.files) {
         const imageUrl = `/uploads/${file.filename}`;
@@ -53,6 +65,7 @@ app.put("/api/complaints/:id", upload.array("images"), async (req, res) => {
         ]);
       }
     }
+
     const [complaint] = await query("SELECT * FROM complaints WHERE id = ?", [complaintId]);
     const images = await query("SELECT image_url FROM complaint_images WHERE complaint_id = ?", [complaintId]);
     res.status(200).json({ ...complaint, images });
@@ -61,6 +74,7 @@ app.put("/api/complaints/:id", upload.array("images"), async (req, res) => {
     res.status(500).json({ error: "Failed to update complaint" });
   }
 });
+
 initDatabase().catch((err) => {
   console.error("❌ Database initialization failed:", err);
   process.exit(1);

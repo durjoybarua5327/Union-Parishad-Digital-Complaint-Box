@@ -2,7 +2,6 @@
 
 import { useState, useEffect } from "react";
 import { useUser } from "@clerk/nextjs";
-import OfficerNavbar from "@/components/OfficerNavbar";
 import { User, Mail, Phone, MapPin, Calendar, Shield } from "lucide-react";
 
 export default function OfficerProfilePage() {
@@ -33,7 +32,6 @@ export default function OfficerProfilePage() {
   if (loading) {
     return (
       <div>
-        <OfficerNavbar />
         <div className="min-h-screen flex items-center justify-center">
           <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-green-600"></div>
         </div>
@@ -43,8 +41,6 @@ export default function OfficerProfilePage() {
 
   return (
     <div className="min-h-screen bg-gray-50 dark:bg-gray-900">
-      <OfficerNavbar />
-      
       <div className="max-w-4xl mx-auto px-4 py-8">
         <div className="mb-8">
           <h1 className="text-3xl font-bold text-gray-900 dark:text-white mb-2">

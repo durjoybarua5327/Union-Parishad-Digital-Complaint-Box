@@ -3,9 +3,13 @@
 import "./globals.css";
 import { ClerkProvider } from "@clerk/nextjs";
 import { Toaster } from "react-hot-toast";
+import { usePathname } from "next/navigation";
 import Navbar from "@/components/Navbar";
+import OfficerNavbar from "@/components/OfficerNavbar";
 
 export default function RootLayout({ children }) {
+  const pathname = usePathname();
+
   return (
     <html lang="en">
       <ClerkProvider
@@ -28,7 +32,10 @@ export default function RootLayout({ children }) {
 
           {/* 🌍 Global Navbar */}
           <header className="sticky top-0 z-50 w-full backdrop-blur-lg bg-white/70 dark:bg-gray-900/70 shadow-md transition-all duration-300">
-            <Navbar />
+            {/* Only show Navbar for non-officer routes */}
+            {!pathname?.startsWith('/officer') && <Navbar />}
+            {/* Show OfficerNavbar for officer routes */}
+            {pathname?.startsWith('/officer') && <OfficerNavbar />}
           </header>
 
           {/* 🌟 Main Content */}

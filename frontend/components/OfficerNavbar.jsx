@@ -61,7 +61,7 @@ export default function OfficerNavbar() {
           href="/officer/complaints"
           className="text-xl sm:text-2xl font-extrabold text-green-700 dark:text-green-400 hover:text-green-800 dark:hover:text-green-500 transition-colors duration-300"
         >
-          Officer Panel - Union Parishad
+          Officer Panel
         </Link>
 
         {/* Desktop Menu */}

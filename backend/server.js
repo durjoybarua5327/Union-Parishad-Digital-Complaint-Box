@@ -93,12 +93,17 @@ app.put("/api/officer/complaints/:id/status", async (req, res) => {
       return res.status(400).json({ error: "Invalid status" });
     }
 
+    // Get old status first
+    const [oldComplaint] = await query("SELECT status FROM complaints WHERE id = ?", [complaintId]);
+    const oldStatus = oldComplaint.status;
+
+    // Update status
     await query("UPDATE complaints SET status = ? WHERE id = ?", [status, complaintId]);
 
     // Log status change
     await query(
-      "INSERT INTO status_changes (complaint_id, officer_id, old_status, new_status) VALUES (?, ?, (SELECT status FROM complaints WHERE id = ?), ?)",
-      [complaintId, officer.id, complaintId, status]
+      "INSERT INTO status_changes (complaint_id, officer_id, old_status, new_status) VALUES (?, ?, ?, ?)",
+      [complaintId, officer.id, oldStatus, status]
     );
 
     const [complaint] = await query("SELECT * FROM complaints WHERE id = ?", [complaintId]);
@@ -244,6 +249,7 @@ app.get("/api/profile", async (req, res) => {
     const profileImage = user.image_url ? `http://localhost:5000${user.image_url}` : null;
 
     res.status(200).json({
+      id: user.id, // ✅ Include user ID for comments
       full_name: user.full_name || "",
       nid_number: user.nid_number || "",
       phone_number: user.phone_number || "",
@@ -394,7 +400,7 @@ app.get("/api/complaints/:id", async (req, res) => {
     if (!complaint) return res.status(404).json({ error: "Complaint not found" });
 
     const comments = await query(
-      `SELECT c.id, c.comment AS content, c.created_at, u.full_name AS user_name
+      `SELECT c.id, c.comment AS content, c.created_at, u.full_name AS user_name, u.role AS user_role
        FROM comments c
        JOIN users u ON c.user_id = u.id
        WHERE c.complaint_id = ?
@@ -475,13 +481,17 @@ app.post("/api/complaints/:id/comments", async (req, res) => {
   const { user_id, comment } = req.body;
 
   try {
+    if (!user_id || !comment) {
+      return res.status(400).json({ error: "User ID and comment are required" });
+    }
+
     await query(
       "INSERT INTO comments (complaint_id, user_id, comment, created_at) VALUES (?, ?, ?, NOW())",
       [complaintId, user_id, comment]
     );
 
     const comments = await query(
-      `SELECT c.id, c.comment AS content, c.created_at, u.full_name AS user_name
+      `SELECT c.id, c.comment AS content, c.created_at, u.full_name AS user_name, u.role AS user_role
        FROM comments c
        JOIN users u ON c.user_id = u.id
        WHERE c.complaint_id=?

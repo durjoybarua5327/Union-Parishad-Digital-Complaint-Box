@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from "react";
 import { useUser } from "@clerk/nextjs";
-import Navbar from "@/components/Navbar";;
+import OfficerNavbar from "@/components/OfficerNavbar";
 import Link from "next/link";
 import { TrendingUp, CheckCircle, Clock, Activity, AlertCircle } from "lucide-react";
 
@@ -49,7 +49,7 @@ export default function OfficerDashboardPage() {
   if (loading) {
     return (
       <div>
-        <Navbar />
+        <OfficerNavbar />
         <div className="min-h-screen flex items-center justify-center">
           <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-green-600"></div>
         </div>
@@ -60,7 +60,7 @@ export default function OfficerDashboardPage() {
   if (!dashboardData) {
     return (
       <div>
-        <Navbar />
+        <OfficerNavbar />
         <div className="min-h-screen flex items-center justify-center">
           <p className="text-gray-600 dark:text-gray-400">Failed to load dashboard data</p>
         </div>
@@ -70,7 +70,7 @@ export default function OfficerDashboardPage() {
 
   return (
     <div className="min-h-screen bg-gray-50 dark:bg-gray-900">
-      <Navbar />
+      <OfficerNavbar />
       
       <div className="max-w-7xl mx-auto px-4 py-8">
         {/* Header */}

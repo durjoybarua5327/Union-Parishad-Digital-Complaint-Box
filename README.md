@@ -1,6 +1,13 @@
 # 🏛️ Union Parishad Digital Complaint Box
-Demo pictures:
-![Demo Image 1](./demos/image1.png)
+## 📸 Demo Screenshots
+<div style="display: grid; grid-template-columns: repeat(2, 1fr); gap: 10px; margin-bottom: 20px;">
+    <img src="./demos/image1.png" alt="Public Complaints Page" style="width: 100%; border-radius: 8px; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.1);">
+    <img src="./demos/image2.png" alt="Dashboard View" style="width: 100%; border-radius: 8px; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.1);">
+    <img src="./demos/image3.png" alt="Complaint Details" style="width: 100%; border-radius: 8px; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.1);">
+    <img src="./demos/image4.png" alt="Admin Panel" style="width: 100%; border-radius: 8px; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.1);">
+    <img src="./demos/image5.png" alt="Officer Dashboard" style="width: 100%; border-radius: 8px; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.1);">
+    <img src="./demos/image6.png" alt="Profile Management" style="width: 100%; border-radius: 8px; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.1);">
+</div>
 
 A **full-stack web application** designed to digitize and streamline the citizen complaint process at the **Union Parishad** (local government) level in Bangladesh.  
 This project allows citizens to submit complaints digitally, track their status, and enables Union Parishad officials to manage, review, and resolve complaints efficiently.

@@ -1,6 +1,6 @@
 # 🏛️ Union Parishad Digital Complaint Box
 Demo pictures:
-![Uploading image.png…]()
+![Demo Image 1](./demos/image1.png)
 
 A **full-stack web application** designed to digitize and streamline the citizen complaint process at the **Union Parishad** (local government) level in Bangladesh.  
 This project allows citizens to submit complaints digitally, track their status, and enables Union Parishad officials to manage, review, and resolve complaints efficiently.

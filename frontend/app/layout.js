@@ -54,7 +54,6 @@ export default function RootLayout({ children }) {
             </p>
           </footer>
 
-          {/* 🔔 Toast Notifications */}
           <Toaster
             position="bottom-right"
             toastOptions={{

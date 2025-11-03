@@ -400,7 +400,7 @@ app.get("/api/complaints/:id", async (req, res) => {
     if (!complaint) return res.status(404).json({ error: "Complaint not found" });
 
     const comments = await query(
-      `SELECT c.id, c.comment AS content, c.created_at, u.full_name AS user_name, u.role AS user_role
+      `SELECT c.id, c.comment AS content, c.created_at, c.user_id, u.full_name AS user_name, u.role AS user_role
        FROM comments c
        JOIN users u ON c.user_id = u.id
        WHERE c.complaint_id = ?
@@ -491,7 +491,7 @@ app.post("/api/complaints/:id/comments", async (req, res) => {
     );
 
     const comments = await query(
-      `SELECT c.id, c.comment AS content, c.created_at, u.full_name AS user_name, u.role AS user_role
+      `SELECT c.id, c.comment AS content, c.created_at, c.user_id, u.full_name AS user_name, u.role AS user_role
        FROM comments c
        JOIN users u ON c.user_id = u.id
        WHERE c.complaint_id=?
@@ -503,6 +503,62 @@ app.post("/api/complaints/:id/comments", async (req, res) => {
   } catch (err) {
     console.error("❌ Error adding comment:", err);
     res.status(500).json({ error: "Failed to add comment" });
+  }
+});
+
+// Update comment
+app.put("/api/comments/:id", async (req, res) => {
+  const commentId = req.params.id;
+  const { comment, user_id } = req.body;
+
+  try {
+    if (!comment || !user_id) {
+      return res.status(400).json({ error: "Comment text and user ID are required" });
+    }
+
+    // Check if user owns the comment
+    const [existing] = await query("SELECT user_id FROM comments WHERE id = ?", [commentId]);
+    if (!existing) {
+      return res.status(404).json({ error: "Comment not found" });
+    }
+    if (existing.user_id !== user_id) {
+      return res.status(403).json({ error: "Unauthorized to edit this comment" });
+    }
+
+    await query("UPDATE comments SET comment = ? WHERE id = ?", [comment, commentId]);
+
+    res.status(200).json({ success: true, message: "Comment updated successfully" });
+  } catch (err) {
+    console.error("❌ Error updating comment:", err);
+    res.status(500).json({ error: "Failed to update comment" });
+  }
+});
+
+// Delete comment
+app.delete("/api/comments/:id", async (req, res) => {
+  const commentId = req.params.id;
+  const { user_id } = req.body;
+
+  try {
+    if (!user_id) {
+      return res.status(400).json({ error: "User ID is required" });
+    }
+
+    // Check if user owns the comment
+    const [existing] = await query("SELECT user_id FROM comments WHERE id = ?", [commentId]);
+    if (!existing) {
+      return res.status(404).json({ error: "Comment not found" });
+    }
+    if (existing.user_id !== user_id) {
+      return res.status(403).json({ error: "Unauthorized to delete this comment" });
+    }
+
+    await query("DELETE FROM comments WHERE id = ?", [commentId]);
+
+    res.status(200).json({ success: true, message: "Comment deleted successfully" });
+  } catch (err) {
+    console.error("❌ Error deleting comment:", err);
+    res.status(500).json({ error: "Failed to delete comment" });
   }
 });
 

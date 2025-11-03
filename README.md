@@ -7,6 +7,8 @@
     <img src="./demos/image4.png" alt="Admin Panel" style="width: 100%; border-radius: 8px; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.1);">
     <img src="./demos/image5.png" alt="Officer Dashboard" style="width: 100%; border-radius: 8px; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.1);">
     <img src="./demos/image6.png" alt="Profile Management" style="width: 100%; border-radius: 8px; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.1);">
+    <img src="./demos/image.png" alt="Profile Management" style="width: 100%; border-radius: 8px; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.1);">
+
 </div>
 
 A **full-stack web application** designed to digitize and streamline the citizen complaint process at the **Union Parishad** (local government) level in Bangladesh.  
